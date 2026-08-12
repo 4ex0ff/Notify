@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:notify/theme/app_theme_variables.dart';
-import '../providers/workspace_provider.dart';
+import '../providers/notes_provider.dart';
 import '../theme/app_theme.dart';
 import 'file_tree_view.dart';
 
@@ -29,7 +29,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(workspaceProvider.notifier).initWorkspace();
+      ref.read(notesProvider.notifier).initNotes();
     });
   }
 
@@ -46,14 +46,14 @@ class _SidebarState extends ConsumerState<Sidebar> {
   }
 
   Widget _buildExpandedContent(BuildContext context) {
-    final workspaceState = ref.watch(workspaceProvider);
+    final notesState = ref.watch(notesProvider);
 
     return Column(
       children: [
         _buildTabSelector(context),
         Expanded(
           child: widget.selectedTab == 0
-              ? _buildNotesSection(context, workspaceState)
+              ? _buildNotesSection(context, notesState)
               : _buildTasksSection(context),
         ),
         const Divider(height: 1),
@@ -62,15 +62,12 @@ class _SidebarState extends ConsumerState<Sidebar> {
     );
   }
 
-  Widget _buildNotesSection(
-    BuildContext context,
-    WorkspaceState workspaceState,
-  ) {
-    if (workspaceState.isLoading) {
+  Widget _buildNotesSection(BuildContext context, NotesState notesState) {
+    if (notesState.isLoading) {
       return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
 
-    final notifier = ref.read(workspaceProvider.notifier);
+    final notifier = ref.read(notesProvider.notifier);
 
     return Column(
       children: [
@@ -127,7 +124,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
             ],
           ),
         ),
-        Expanded(child: FileTreeView(nodes: workspaceState.nodes)),
+        Expanded(child: FileTreeView(nodes: notesState.nodes)),
       ],
     );
   }

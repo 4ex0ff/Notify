@@ -1,17 +1,79 @@
-# notify
+# Notify
 
-A new Flutter project.
+1. Концепция и философия
+Notify — это кроссплатформенное (Desktop / Mobile) локально-ориентированное (offline-first) приложение для ведения заметок и управления задачами.
 
-## Getting Started
+Ключевые принципы:
+Автономность (Offline-first): Все данные хранятся локально на устройстве пользователя. Приложение полноценно функционирует без подключения к интернету.
 
-This project is a starting point for a Flutter application.
+Приватность и сквозное шифрование: Все локальные файлы и файл-манифест зашифровываются на стороне клиента перед отправкой в облачное хранилище.
 
-A few resources to get you started if this is your first Flutter project:
+Использование готовых библиотек и гибкость расширения: Базовый функционал реализуется с помощью готовых библиотек экосистемы Flutter, а отдельные узкоспециализированные компоненты (контекстные меню, элементы тулбара редактора и т.д.) дописываются и дорабатываются вручную при необходимости.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+2. Технологический стек (Tech Stack)
+Фреймворк: Flutter (Dart).
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Управление состоянием (State Management): flutter_riverpod.
+
+Текстовый редактор: flutter_quill (Rich Text редактор на базе Delta/JSON структуры).
+
+Дерево файлов: flutter_fancy_tree_view (структура заметок и папок).
+
+Канбан-доска: kanban_board / appflowy_board (или аналогичный готовый пакет для работы с колонками и Drag-and-Drop).
+
+Иконки: lucide_icons_flutter.
+
+Локализация: flutter_localizations.
+
+Файловая система и пути: path, path_provider, watcher.
+
+Безопасность и Шифрование: encrypt (AES) для шифрования перед синхронизацией.
+
+Синхронизация: Google Drive API (googleapis, google_sign_in).
+
+3. Архитектура хранения и файловая структура
+Все данные хранятся локально в единой корневой директории NotifyStorage, разделенной на подпапки по логике разделов:
+
+Plaintext
+NotifyStorage/
+├── notes/             # Раздел заметок (папки и .json файлы)
+│   ├── Проекты/
+│   │   └── идейки.json
+│   └── список.json
+├── tasks/             # Раздел задач (Канбан)
+│   ├── Главная доска/ # Папка доски
+│   │   ├── Backlog/   # Папка колонки
+│   │   │   └── задача_1.json
+│   │   ├── To Do/
+│   │   ├── In Progress/
+│   │   └── Done/
+│   └── board_config.json
+└── manifest.json      # Файл-манифест синхронизации
+3.1. Раздел «Заметки» (notes/)
+Иерархическое дерево папок и .json файлов.
+
+Содержимое — Rich Text структура Quill Delta.
+
+Автосохранение с фоновым дебаунсом при изменениях.
+
+3.2. Раздел «Задачи» (tasks/)
+Папочная архитектура: Канбан-доски и их колонки хранятся как структуры папок. Колонки являются подпапками внутри папки соответствующей доски, а карточки — .json файлами задач внутри них.
+
+4 колонки по умолчанию:
+
+Backlog (Бэклог / Идеи)
+
+To Do (К выполнению)
+
+In Progress (В процессе)
+
+Done (Готово)
+
+Настройка: Возможность создавать, переименовывать, удалять и переупорядочивать колонки-папки и перемещать между ними файлы задач.
+
+4. Синхронизация и Безопасность
+Облако: Google Drive.
+
+Файл-манифест (manifest.json): Лежит в корне NotifyStorage, хранит хэши, таймштампы и UUID для эффективного Two-Way Sync без лишних загрузок.
+
+Клиентское шифрование: Все локальные файлы перед отправкой в Google Drive зашифровываются на устройстве (End-to-End Encryption).

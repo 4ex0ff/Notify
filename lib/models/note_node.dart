@@ -1,10 +1,10 @@
-class FileNode {
+class NoteNode {
   final String title;
   final String path;
   final bool isDirectory;
-  final List<FileNode> children;
+  final List<NoteNode> children;
 
-  FileNode({
+  NoteNode({
     required this.title,
     required this.path,
     required this.isDirectory,

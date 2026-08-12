@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:path/path.dart' as p;
 
-import '../providers/workspace_provider.dart';
+import '../providers/notes_provider.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_theme_variables.dart';
 
@@ -25,21 +25,42 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
   Timer? _autoSaveTimer;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final initialPath = ref.read(notesProvider).selectedFilePath;
+      if (initialPath != null) {
+        _loadNote(initialPath);
+      }
+    });
+  }
+
+  @override
   void dispose() {
-    _autoSaveTimer?.cancel();
-    _quillController?.dispose();
+    _resetEditor();
     super.dispose();
   }
 
-  // Загрузка файла при выборе заметки в сайдбаре
+  void _resetEditor() {
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = null;
+    _quillController?.dispose();
+    _quillController = null;
+    _currentLoadedPath = null;
+  }
+
   Future<void> _loadNote(String path) async {
     if (_currentLoadedPath == path) return;
-    _currentLoadedPath = path;
 
     _autoSaveTimer?.cancel();
 
     final file = File(path);
-    if (!await file.exists()) return;
+    if (!await file.exists()) {
+      if (mounted) {
+        setState(() => _resetEditor());
+      }
+      return;
+    }
 
     final content = await file.readAsString();
     Document doc;
@@ -52,27 +73,28 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
         doc = Document.fromJson(json);
       }
     } catch (_) {
-      // Если файл поврежден или содержит неверный формат — создаем пустой документ
       doc = Document()..insert(0, '');
     }
 
     _quillController?.dispose();
 
-    setState(() {
-      _quillController = QuillController(
-        document: doc,
-        selection: const TextSelection.collapsed(offset: 0),
-      );
-      _currentLoadedPath = path;
+    if (!mounted) return;
+
+    final controller = QuillController(
+      document: doc,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+
+    controller.document.changes.listen((_) {
+      _scheduleAutoSave(path);
     });
 
-    // Автосохранение при изменениях в документе с дебаунсом в 500мс
-    _quillController!.document.changes.listen((_) {
-      _scheduleAutoSave(path);
+    setState(() {
+      _quillController = controller;
+      _currentLoadedPath = path;
     });
   }
 
-  // Автосохранение
   void _scheduleAutoSave(String path) {
     _autoSaveTimer?.cancel();
     _autoSaveTimer = Timer(const Duration(milliseconds: 500), () async {
@@ -82,33 +104,34 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
         _quillController!.document.toDelta().toJson(),
       );
       final file = File(path);
-      await file.writeAsString(deltaJson);
+
+      if (await file.exists()) {
+        await file.writeAsString(deltaJson);
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<String?>(workspaceProvider.select((s) => s.selectedFilePath), (
+    ref.listen<String?>(notesProvider.select((s) => s.selectedFilePath), (
       previous,
       next,
     ) {
-      if (next != null && next != _currentLoadedPath) {
-        _loadNote(next);
+      if (next != null) {
+        if (next != _currentLoadedPath) {
+          _loadNote(next);
+        }
+      } else {
+        setState(() {
+          _resetEditor();
+        });
       }
     });
 
     final selectedFilePath = ref.watch(
-      workspaceProvider.select((s) => s.selectedFilePath),
+      notesProvider.select((s) => s.selectedFilePath),
     );
 
-    // Если открыли новый файл — подгружаем его
-    if (selectedFilePath != null && selectedFilePath != _currentLoadedPath) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _loadNote(selectedFilePath);
-      });
-    }
-
-    // Заметка не выбрана
     if (selectedFilePath == null) {
       return Center(
         child: Column(
@@ -129,12 +152,10 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
       );
     }
 
-    // Загрузка выбранного файла
     if (_quillController == null || _currentLoadedPath != selectedFilePath) {
       return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
 
-    // Активный редактор
     final fileName = p.basenameWithoutExtension(selectedFilePath);
 
     return Column(
@@ -179,10 +200,10 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
         Expanded(
           child: Container(
             color: context.colors.surface,
-            padding: EdgeInsets.all(AppThemeVariables.xl),
+            padding: const EdgeInsets.all(AppThemeVariables.xl),
             child: QuillEditor.basic(
               controller: _quillController!,
-              config: QuillEditorConfig(
+              config: const QuillEditorConfig(
                 placeholder: 'Начните писать здесь...',
                 padding: EdgeInsets.zero,
               ),

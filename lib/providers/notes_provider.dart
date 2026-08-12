@@ -4,18 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:watcher/watcher.dart';
-import '../models/file_node.dart';
+import '../models/note_node.dart';
 
-class WorkspaceState {
-  final String workspacePath;
-  final List<FileNode> nodes;
+class NotesState {
+  final String notesPath;
+  final List<NoteNode> nodes;
   final Set<String> expandedPaths;
   final String? selectedFilePath;
   final String? editingPath;
   final bool isLoading;
 
-  const WorkspaceState({
-    required this.workspacePath,
+  const NotesState({
+    required this.notesPath,
     required this.nodes,
     required this.expandedPaths,
     this.selectedFilePath,
@@ -23,17 +23,18 @@ class WorkspaceState {
     this.isLoading = false,
   });
 
-  WorkspaceState copyWith({
-    String? workspacePath,
-    List<FileNode>? nodes,
+  NotesState copyWith({
+    String? notesPath,
+    List<NoteNode>? nodes,
     Set<String>? expandedPaths,
     String? selectedFilePath,
     String? editingPath,
     bool? isLoading,
     bool clearEditingPath = false,
+    bool clearSelectedFile = false,
   }) {
-    return WorkspaceState(
-      workspacePath: workspacePath ?? this.workspacePath,
+    return NotesState(
+      notesPath: notesPath ?? this.notesPath,
       nodes: nodes ?? this.nodes,
       expandedPaths: expandedPaths ?? this.expandedPaths,
       selectedFilePath: selectedFilePath ?? this.selectedFilePath,
@@ -43,25 +44,25 @@ class WorkspaceState {
   }
 }
 
-class WorkspaceNotifier extends Notifier<WorkspaceState> {
+class NotesNotifier extends Notifier<NotesState> {
   StreamSubscription<WatchEvent>? _watcherSubscription;
 
   @override
-  WorkspaceState build() {
+  NotesState build() {
     ref.onDispose(() => _watcherSubscription?.cancel());
-    return const WorkspaceState(
-      workspacePath: '',
+    return const NotesState(
+      notesPath: '',
       nodes: [],
       expandedPaths: {},
       isLoading: true,
     );
   }
 
-  Future<void> initWorkspace() async {
+  Future<void> initNotes() async {
     state = state.copyWith(isLoading: true);
 
     final docsDir = await getApplicationDocumentsDirectory();
-    final targetDir = Directory(p.join(docsDir.path, 'NotifyNotes'));
+    final targetDir = Directory(p.join(docsDir.path, 'NotifyStorage', 'notes'));
 
     if (!await targetDir.exists()) {
       await targetDir.create(recursive: true);
@@ -70,15 +71,15 @@ class WorkspaceNotifier extends Notifier<WorkspaceState> {
     final path = targetDir.path;
     final tree = _scanDirectory(Directory(path));
 
-    state = state.copyWith(workspacePath: path, nodes: tree, isLoading: false);
+    state = state.copyWith(notesPath: path, nodes: tree, isLoading: false);
 
     _watchFileSystem(path);
   }
 
-  List<FileNode> _scanDirectory(Directory dir) {
+  List<NoteNode> _scanDirectory(Directory dir) {
     if (!dir.existsSync()) return [];
 
-    final List<FileNode> nodes = [];
+    final List<NoteNode> nodes = [];
     final List<FileSystemEntity> entities = dir.listSync();
 
     entities.sort((a, b) {
@@ -95,7 +96,7 @@ class WorkspaceNotifier extends Notifier<WorkspaceState> {
 
       if (entity is Directory) {
         nodes.add(
-          FileNode(
+          NoteNode(
             title: name,
             path: entity.path,
             isDirectory: true,
@@ -104,7 +105,7 @@ class WorkspaceNotifier extends Notifier<WorkspaceState> {
         );
       } else if (entity is File && name.endsWith('.json')) {
         nodes.add(
-          FileNode(
+          NoteNode(
             title: p.basenameWithoutExtension(name),
             path: entity.path,
             isDirectory: false,
@@ -123,8 +124,8 @@ class WorkspaceNotifier extends Notifier<WorkspaceState> {
   }
 
   void refreshTree() {
-    if (state.workspacePath.isEmpty) return;
-    final tree = _scanDirectory(Directory(state.workspacePath));
+    if (state.notesPath.isEmpty) return;
+    final tree = _scanDirectory(Directory(state.notesPath));
     state = state.copyWith(nodes: tree);
   }
 
@@ -141,7 +142,7 @@ class WorkspaceNotifier extends Notifier<WorkspaceState> {
   void _ensureParentsExpanded(String filePath) {
     final updated = Set<String>.from(state.expandedPaths);
     String parent = p.dirname(filePath);
-    while (parent.isNotEmpty && parent != state.workspacePath) {
+    while (parent.isNotEmpty && parent != state.notesPath) {
       updated.add(parent);
       parent = p.dirname(parent);
     }
@@ -152,7 +153,7 @@ class WorkspaceNotifier extends Notifier<WorkspaceState> {
     state = state.copyWith(selectedFilePath: path);
   }
 
-  Future<void> createNote([FileNode? targetNode]) async {
+  Future<void> createNote([NoteNode? targetNode]) async {
     final parentDir = _resolveParentDirectory(targetNode);
     final fullPath = await _getUniquePath(
       parentDir,
@@ -170,7 +171,7 @@ class WorkspaceNotifier extends Notifier<WorkspaceState> {
     state = state.copyWith(editingPath: fullPath);
   }
 
-  Future<void> createFolder([FileNode? targetNode]) async {
+  Future<void> createFolder([NoteNode? targetNode]) async {
     final parentDir = _resolveParentDirectory(targetNode);
     final fullPath = await _getUniquePath(
       parentDir,
@@ -187,7 +188,7 @@ class WorkspaceNotifier extends Notifier<WorkspaceState> {
     state = state.copyWith(editingPath: fullPath);
   }
 
-  Future<void> renameNode(FileNode node, String newTitle) async {
+  Future<void> renameNode(NoteNode node, String newTitle) async {
     final entity = node.isDirectory ? Directory(node.path) : File(node.path);
     final parentDir = entity.parent.path;
 
@@ -196,18 +197,54 @@ class WorkspaceNotifier extends Notifier<WorkspaceState> {
         : (newTitle.endsWith('.json') ? newTitle : '$newTitle.json');
 
     final newPath = p.join(parentDir, newFileName);
+
     if (newPath != node.path) {
       await entity.rename(newPath);
+
+      // Обновляем selectedFilePath, если переименован выбранный файл или его родитель
+      String? updatedSelected = state.selectedFilePath;
+      if (state.selectedFilePath != null) {
+        if (state.selectedFilePath == node.path) {
+          updatedSelected = newPath;
+        } else if (p.isWithin(node.path, state.selectedFilePath!)) {
+          final relative = p.relative(state.selectedFilePath!, from: node.path);
+          updatedSelected = p.join(newPath, relative);
+        }
+      }
+
       refreshTree();
+
+      state = state.copyWith(
+        selectedFilePath: updatedSelected,
+        clearEditingPath: true,
+      );
+    } else {
+      state = state.copyWith(clearEditingPath: true);
     }
-    state = state.copyWith(clearEditingPath: true);
   }
 
-  Future<void> deleteNode(FileNode node) async {
+  Future<void> deleteNode(NoteNode node) async {
     final entity = node.isDirectory ? Directory(node.path) : File(node.path);
     if (await entity.exists()) {
       await entity.delete(recursive: true);
+
+      final isSelectedDeleted =
+          state.selectedFilePath != null &&
+          (state.selectedFilePath == node.path ||
+              p.isWithin(node.path, state.selectedFilePath!));
+      final isEditingDeleted =
+          state.editingPath != null &&
+          (state.editingPath == node.path ||
+              p.isWithin(node.path, state.editingPath!));
+
       refreshTree();
+
+      if (isSelectedDeleted || isEditingDeleted) {
+        state = state.copyWith(
+          clearSelectedFile: isSelectedDeleted,
+          clearEditingPath: isEditingDeleted,
+        );
+      }
     }
   }
 
@@ -219,8 +256,8 @@ class WorkspaceNotifier extends Notifier<WorkspaceState> {
     state = state.copyWith(clearEditingPath: true);
   }
 
-  String _resolveParentDirectory(FileNode? targetNode) {
-    if (targetNode == null) return state.workspacePath;
+  String _resolveParentDirectory(NoteNode? targetNode) {
+    if (targetNode == null) return state.notesPath;
     if (targetNode.isDirectory) return targetNode.path;
     return p.dirname(targetNode.path);
   }
@@ -247,6 +284,6 @@ class WorkspaceNotifier extends Notifier<WorkspaceState> {
   }
 }
 
-final workspaceProvider = NotifierProvider<WorkspaceNotifier, WorkspaceState>(
-  WorkspaceNotifier.new,
+final notesProvider = NotifierProvider<NotesNotifier, NotesState>(
+  NotesNotifier.new,
 );

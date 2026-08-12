@@ -5,12 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:path/path.dart' as p;
 import 'package:notify/theme/app_theme_variables.dart';
-import '../models/file_node.dart';
-import '../providers/workspace_provider.dart';
+import '../models/note_node.dart';
+import '../providers/notes_provider.dart';
 import '../theme/app_theme.dart';
 
 class FileTreeView extends ConsumerStatefulWidget {
-  final List<FileNode> nodes;
+  final List<NoteNode> nodes;
 
   const FileTreeView({super.key, required this.nodes});
 
@@ -19,7 +19,7 @@ class FileTreeView extends ConsumerStatefulWidget {
 }
 
 class _FileTreeViewState extends ConsumerState<FileTreeView> {
-  late final TreeController<FileNode> _treeController;
+  late final TreeController<NoteNode> _treeController;
   late final TextEditingController _renameController;
   late final FocusNode _renameFocusNode;
 
@@ -29,7 +29,7 @@ class _FileTreeViewState extends ConsumerState<FileTreeView> {
     _renameController = TextEditingController();
     _renameFocusNode = FocusNode();
 
-    _treeController = TreeController<FileNode>(
+    _treeController = TreeController<NoteNode>(
       roots: widget.nodes,
       childrenProvider: (node) => node.children,
     );
@@ -44,8 +44,8 @@ class _FileTreeViewState extends ConsumerState<FileTreeView> {
     }
   }
 
-  void _restoreExpansionState(Iterable<FileNode> nodes) {
-    final expandedPaths = ref.read(workspaceProvider).expandedPaths;
+  void _restoreExpansionState(Iterable<NoteNode> nodes) {
+    final expandedPaths = ref.read(notesProvider).expandedPaths;
     for (final node in nodes) {
       if (node.isDirectory) {
         if (expandedPaths.contains(node.path)) {
@@ -79,17 +79,17 @@ class _FileTreeViewState extends ConsumerState<FileTreeView> {
     });
   }
 
-  void _submitRename(FileNode node) {
+  void _submitRename(NoteNode node) {
     final newTitle = _renameController.text.trim();
     if (newTitle.isNotEmpty && newTitle != node.title) {
-      ref.read(workspaceProvider.notifier).renameNode(node, newTitle);
+      ref.read(notesProvider.notifier).renameNode(node, newTitle);
     } else {
-      ref.read(workspaceProvider.notifier).cancelEditing();
+      ref.read(notesProvider.notifier).cancelEditing();
     }
   }
 
-  void _showContextMenu(BuildContext context, Offset position, FileNode node) {
-    final notifier = ref.read(workspaceProvider.notifier);
+  void _showContextMenu(BuildContext context, Offset position, NoteNode node) {
+    final notifier = ref.read(notesProvider.notifier);
 
     showMenu<String>(
       context: context,
@@ -177,10 +177,7 @@ class _FileTreeViewState extends ConsumerState<FileTreeView> {
       return Center(child: Text('Нет заметок', style: context.bodySmall));
     }
 
-    ref.listen(workspaceProvider.select((s) => s.editingPath), (
-      previous,
-      next,
-    ) {
+    ref.listen(notesProvider.select((s) => s.editingPath), (previous, next) {
       if (next != null) {
         _setupRenameField(next);
       } else {
@@ -188,19 +185,15 @@ class _FileTreeViewState extends ConsumerState<FileTreeView> {
       }
     });
 
-    final workspaceState = ref.watch(workspaceProvider);
-    final notifier = ref.read(workspaceProvider.notifier);
+    final notesState = ref.watch(notesProvider);
+    final notifier = ref.read(notesProvider.notifier);
 
-    return TreeView<FileNode>(
+    return TreeView<NoteNode>(
       treeController: _treeController,
-      nodeBuilder: (BuildContext context, TreeEntry<FileNode> entry) {
+      nodeBuilder: (BuildContext context, TreeEntry<NoteNode> entry) {
         final node = entry.node;
-        final isSelected = workspaceState.selectedFilePath == node.path;
-        final isEditing = workspaceState.editingPath == node.path;
-
-        if (isEditing && _renameController.text.isEmpty) {
-          _setupRenameField(node.path);
-        }
+        final isSelected = notesState.selectedFilePath == node.path;
+        final isEditing = notesState.editingPath == node.path;
 
         return TreeIndentation(
           entry: entry,
