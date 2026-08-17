@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:path/path.dart' as p;
 import 'package:notify/theme/app_theme_variables.dart';
-import '../models/note_node.dart';
-import '../providers/notes_provider.dart';
-import '../theme/app_theme.dart';
+import '../../models/notes/note_node.dart';
+import '../../providers/notes_provider.dart';
+import '../../theme/app_theme.dart';
 
 class FileTreeView extends ConsumerStatefulWidget {
   final List<NoteNode> nodes;
@@ -219,7 +219,7 @@ class _FileTreeViewState extends ConsumerState<FileTreeView> {
                     ? context.colors.surfaceContainerHigh
                     : Colors.transparent,
                 padding: const EdgeInsets.symmetric(
-                  vertical: AppThemeVariables.xxs,
+                  vertical: AppThemeVariables.xs,
                   horizontal: AppThemeVariables.xs,
                 ),
                 child: Row(
@@ -229,7 +229,7 @@ class _FileTreeViewState extends ConsumerState<FileTreeView> {
                         entry.isExpanded
                             ? LucideIcons.chevronDown
                             : LucideIcons.chevronRight,
-                        size: AppThemeVariables.iconSm,
+                        size: AppThemeVariables.iconMd,
                       )
                     else
                       const SizedBox(width: AppThemeVariables.md),
@@ -242,7 +242,7 @@ class _FileTreeViewState extends ConsumerState<FileTreeView> {
                                 ? LucideIcons.folderOpen
                                 : LucideIcons.folder)
                           : LucideIcons.fileText,
-                      size: AppThemeVariables.iconSm,
+                      size: AppThemeVariables.iconMd,
                       color: node.isDirectory
                           ? Theme.of(context).colorScheme.primary
                           : Theme.of(context).colorScheme.onSurfaceVariant,
@@ -285,7 +285,7 @@ class _FileTreeViewState extends ConsumerState<FileTreeView> {
                             )
                           : Text(
                               node.title,
-                              style: context.bodySecondary,
+                              style: context.body,
                               overflow: TextOverflow.ellipsis,
                             ),
                     ),

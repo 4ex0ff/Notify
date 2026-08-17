@@ -8,9 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:path/path.dart' as p;
 
-import '../providers/notes_provider.dart';
-import '../theme/app_theme.dart';
-import '../theme/app_theme_variables.dart';
+import '../../providers/notes_provider.dart';
+import '../../theme/app_theme.dart';
+import '../../theme/app_theme_variables.dart';
 
 class NotesScreen extends ConsumerStatefulWidget {
   const NotesScreen({super.key});

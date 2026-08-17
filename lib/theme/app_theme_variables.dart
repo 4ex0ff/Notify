@@ -11,26 +11,6 @@ abstract class AppThemeVariables {
   static const double xxl = 48.0;
   static const double xxxl = 64.0;
 
-  /*
-  // Отступы в EdgeInsets
-  static const EdgeInsets paddingXXs = EdgeInsets.all(xxs);
-  static const EdgeInsets paddingXs = EdgeInsets.all(xs);
-  static const EdgeInsets paddingSm = EdgeInsets.all(sm);
-  static const EdgeInsets paddingMd = EdgeInsets.all(md);
-  static const EdgeInsets paddingLg = EdgeInsets.all(lg);
-  static const EdgeInsets paddingXl = EdgeInsets.all(xl);
-  static const EdgeInsets paddingXXl = EdgeInsets.all(xxl);
-
-  // Отступы в SizedBox
-  static const Widget gapXXs = SizedBox(width: xxs, height: xxs);
-  static const Widget gapXs = SizedBox(width: xs, height: xs);
-  static const Widget gapSm = SizedBox(width: sm, height: sm);
-  static const Widget gapMd = SizedBox(width: md, height: md);
-  static const Widget gapLg = SizedBox(width: lg, height: lg);
-  static const Widget gapXl = SizedBox(width: xl, height: xl);
-  static const Widget gapXXl = SizedBox(width: xxl, height: xxl);
-  */
-
   // Скругления
   static final BorderRadius borderRadiusXs = BorderRadius.circular(4.0);
   static final BorderRadius borderRadiusSm = BorderRadius.circular(8.0);

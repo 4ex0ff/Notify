@@ -4,14 +4,18 @@ import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'theme/app_theme.dart';
-import 'widgets/kanban_screen.dart';
-import 'widgets/notes_screen.dart';
+import 'widgets/tasks/tasks_screen.dart';
+import 'widgets/notes/notes_screen.dart';
 import 'widgets/sidebar.dart';
 
 void main() {
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+  };
   runApp(const ProviderScope(child: NotifyApp()));
 }
 
+// --- Главный класс приложения ---
 class NotifyApp extends StatelessWidget {
   const NotifyApp({super.key});
 
@@ -33,6 +37,7 @@ class NotifyApp extends StatelessWidget {
   }
 }
 
+// --- Главный экран ---
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
@@ -40,18 +45,19 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
+// --- Главный экран ---
 class _MainScreenState extends State<MainScreen> {
   int _selectedTab = 0;
   bool _isSidebarOpen = true;
 
-  final List<Widget> _screens = [const NotesScreen(), const KanbanScreen()];
+  final List<Widget> _screens = [const NotesScreen(), const TasksScreen()];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Row(
         children: [
-          // Боковая панель
+          // --- Боковая панель ---
           Sidebar(
             isOpen: _isSidebarOpen,
             selectedTab: _selectedTab,
@@ -63,13 +69,12 @@ class _MainScreenState extends State<MainScreen> {
             onTabChanged: (int index) {
               setState(() {
                 _selectedTab = index;
-                //if (!_isSidebarOpen) _isSidebarOpen = true;
               });
             },
           ),
           const VerticalDivider(width: 1),
 
-          // Основная рабочая область
+          // --- Основная рабочая область ---
           Expanded(child: _screens[_selectedTab]),
         ],
       ),

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:notify/providers/tasks_provider.dart';
 import 'package:notify/theme/app_theme_variables.dart';
 import '../providers/notes_provider.dart';
 import '../theme/app_theme.dart';
-import 'file_tree_view.dart';
+import 'notes/file_tree_view.dart';
+import 'tasks/boards_list_view.dart';
 
 class Sidebar extends ConsumerStatefulWidget {
   final bool isOpen;
@@ -25,14 +27,17 @@ class Sidebar extends ConsumerStatefulWidget {
 }
 
 class _SidebarState extends ConsumerState<Sidebar> {
+  // Инициализация состояния боковой панели
   @override
   void initState() {
     super.initState();
     Future.microtask(() {
       ref.read(notesProvider.notifier).initNotes();
+      ref.read(tasksProvider.notifier).initTasks();
     });
   }
 
+  // Отрисовка боковой панели
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
@@ -45,8 +50,67 @@ class _SidebarState extends ConsumerState<Sidebar> {
     );
   }
 
+  // Боковая панель в свёрнутом состоянии
+  Widget _buildCollapsedContent(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppThemeVariables.xxs),
+      child: NavigationRail(
+        selectedIndex: widget.selectedTab,
+        onDestinationSelected: widget.onTabChanged,
+        labelType: NavigationRailLabelType.none,
+        trailingAtBottom: true,
+        backgroundColor: Colors.transparent,
+        leading: Column(
+          children: [
+            IconButton(
+              // Кнопка переключения состояния панели (развернуть)
+              icon: const Icon(LucideIcons.panelLeftOpen),
+              tooltip: 'Развернуть панель',
+              onPressed: widget.onToggleSidebar,
+              iconSize: AppThemeVariables.iconLg,
+            ),
+          ],
+        ),
+        destinations: const [
+          // Кнопки выбора раздела (заметки/задачи)
+          NavigationRailDestination(
+            icon: Icon(LucideIcons.fileText, size: AppThemeVariables.iconLg),
+            label: Text(''),
+          ),
+          NavigationRailDestination(
+            icon: Icon(
+              LucideIcons.squareKanban,
+              size: AppThemeVariables.iconLg,
+            ),
+            label: Text(''),
+          ),
+        ],
+        trailing: Column(
+          children: [
+            // Кнопки синхронизации и настроек
+            IconButton(
+              icon: const Icon(LucideIcons.refreshCw),
+              tooltip: 'Синхронизация',
+              onPressed: () {},
+              iconSize: AppThemeVariables.iconLg,
+            ),
+            IconButton(
+              icon: const Icon(LucideIcons.settings),
+              tooltip: 'Настройки',
+              onPressed: () {},
+              iconSize: AppThemeVariables.iconLg,
+            ),
+            const SizedBox(height: AppThemeVariables.xs),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Боковая панель в раскрытом состоянии
   Widget _buildExpandedContent(BuildContext context) {
     final notesState = ref.watch(notesProvider);
+    final tasksState = ref.watch(tasksProvider);
 
     return Column(
       children: [
@@ -54,7 +118,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
         Expanded(
           child: widget.selectedTab == 0
               ? _buildNotesSection(context, notesState)
-              : _buildTasksSection(context),
+              : _buildTasksSection(context, tasksState),
         ),
         const Divider(height: 1),
         _buildFooter(context),
@@ -62,13 +126,16 @@ class _SidebarState extends ConsumerState<Sidebar> {
     );
   }
 
+  // Каталог заметок
   Widget _buildNotesSection(BuildContext context, NotesState notesState) {
+    // Состояние загрузки
     if (notesState.isLoading) {
       return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
 
     final notifier = ref.read(notesProvider.notifier);
 
+    // Рабочее состояние
     return Column(
       children: [
         Padding(
@@ -79,6 +146,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // Кнопки управления заметками
               IconButton(
                 icon: const Icon(LucideIcons.filePlus),
                 tooltip: 'Новая заметка',
@@ -124,15 +192,54 @@ class _SidebarState extends ConsumerState<Sidebar> {
             ],
           ),
         ),
+        // Файловое дерево (file_tree_view.dart)
         Expanded(child: FileTreeView(nodes: notesState.nodes)),
       ],
     );
   }
 
-  Widget _buildTasksSection(BuildContext context) {
-    return Center(child: Text('Раздел задач', style: context.bodySmall));
+  // Каталог канбан-досок
+  Widget _buildTasksSection(BuildContext context, TasksState tasksState) {
+    if (tasksState.isLoading) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    }
+
+    final notifier = ref.read(tasksProvider.notifier);
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: AppThemeVariables.xs,
+            horizontal: AppThemeVariables.xl,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(LucideIcons.clipboardPlus),
+                tooltip: 'Новая доска',
+                onPressed: () => notifier.createBoard('Новая доска'),
+                visualDensity: VisualDensity.compact,
+                iconSize: AppThemeVariables.iconLg,
+              ),
+              IconButton(
+                icon: const Icon(LucideIcons.refreshCw),
+                tooltip: 'Обновить',
+                onPressed: () => notifier.initTasks(),
+                visualDensity: VisualDensity.compact,
+                iconSize: AppThemeVariables.iconLg,
+              ),
+            ],
+          ),
+        ),
+        // Каталог
+        const Expanded(child: BoardsListView()),
+      ],
+    );
   }
 
+  // Выбор раздела (заметки/задачи)
   Widget _buildTabSelector(BuildContext context) {
     return Row(
       children: [
@@ -152,6 +259,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
               ),
               segments: [
                 ButtonSegment<int>(
+                  // Кнопка раздела заметок
                   value: 0,
                   icon: Icon(
                     LucideIcons.fileText,
@@ -166,6 +274,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
                   ),
                 ),
                 ButtonSegment<int>(
+                  // Кнопка раздела задач
                   value: 1,
                   icon: Icon(
                     LucideIcons.squareKanban,
@@ -188,6 +297,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
           ),
         ),
         IconButton(
+          // Кнопка переключения состояния панели (свернуть)
           icon: const Icon(LucideIcons.panelLeftClose),
           tooltip: 'Свернуть панель',
           onPressed: widget.onToggleSidebar,
@@ -199,6 +309,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
     );
   }
 
+  // Футер
   Widget _buildFooter(BuildContext context) {
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -211,6 +322,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
         children: [
           Expanded(
             child: TextButton.icon(
+              // Кнопка синхронизации
               label: Text('Синхронизация', style: context.bodySecondary),
               icon: const Icon(
                 LucideIcons.refreshCw,
@@ -222,6 +334,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
           ),
           Expanded(
             child: TextButton.icon(
+              // Кнопка настроек
               label: Text('Настройки', style: context.bodySecondary),
               icon: const Icon(
                 LucideIcons.settings,
@@ -232,59 +345,6 @@ class _SidebarState extends ConsumerState<Sidebar> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCollapsedContent(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppThemeVariables.xxs),
-      child: NavigationRail(
-        selectedIndex: widget.selectedTab,
-        onDestinationSelected: widget.onTabChanged,
-        labelType: NavigationRailLabelType.none,
-        trailingAtBottom: true,
-        backgroundColor: Colors.transparent,
-        leading: Column(
-          children: [
-            IconButton(
-              icon: const Icon(LucideIcons.panelLeftOpen),
-              tooltip: 'Развернуть панель',
-              onPressed: widget.onToggleSidebar,
-              iconSize: AppThemeVariables.iconLg,
-            ),
-          ],
-        ),
-        destinations: const [
-          NavigationRailDestination(
-            icon: Icon(LucideIcons.fileText, size: AppThemeVariables.iconLg),
-            label: Text(''),
-          ),
-          NavigationRailDestination(
-            icon: Icon(
-              LucideIcons.squareKanban,
-              size: AppThemeVariables.iconLg,
-            ),
-            label: Text(''),
-          ),
-        ],
-        trailing: Column(
-          children: [
-            IconButton(
-              icon: const Icon(LucideIcons.refreshCw),
-              tooltip: 'Синхронизация',
-              onPressed: () {},
-              iconSize: AppThemeVariables.iconLg,
-            ),
-            IconButton(
-              icon: const Icon(LucideIcons.settings),
-              tooltip: 'Настройки',
-              onPressed: () {},
-              iconSize: AppThemeVariables.iconLg,
-            ),
-            const SizedBox(height: AppThemeVariables.xs),
-          ],
-        ),
       ),
     );
   }

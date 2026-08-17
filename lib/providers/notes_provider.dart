@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:watcher/watcher.dart';
-import '../models/note_node.dart';
+import '../models/notes/note_node.dart';
 
 class NotesState {
   final String notesPath;
