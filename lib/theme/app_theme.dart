@@ -81,6 +81,9 @@ abstract class AppTheme {
           surfaceContainerHigh: const Color(
             0xFF2B2B2B,
           ), // Фон инпутов и ховеров
+          surfaceContainerHighest: const Color(
+            0xFF383838,
+          ), // Фон выбранного элемента
           // Текстовые цвета
           onSurface: const Color(0xFFE0E0E0), // Основной текст
           onSurfaceVariant: const Color.fromARGB(
@@ -111,6 +114,20 @@ abstract class AppTheme {
       iconTheme: IconThemeData(
         color: colorScheme.onSurfaceVariant,
         size: AppThemeVariables.iconMd,
+      ),
+
+      iconButtonTheme: IconButtonThemeData(
+        style: ButtonStyle(
+          overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
+            if (states.contains(WidgetState.hovered)) {
+              return colorScheme.surfaceContainerHigh;
+            }
+            if (states.contains(WidgetState.pressed)) {
+              return colorScheme.primary.withValues(alpha: 0.16);
+            }
+            return null;
+          }),
+        ),
       ),
     );
   }

@@ -63,7 +63,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
         leading: Column(
           children: [
             IconButton(
-              // Кнопка переключения состояния панели (развернуть)
+              mouseCursor: SystemMouseCursors.click,
               icon: const Icon(LucideIcons.panelLeftOpen),
               tooltip: 'Развернуть панель',
               onPressed: widget.onToggleSidebar,
@@ -72,7 +72,6 @@ class _SidebarState extends ConsumerState<Sidebar> {
           ],
         ),
         destinations: const [
-          // Кнопки выбора раздела (заметки/задачи)
           NavigationRailDestination(
             icon: Icon(LucideIcons.fileText, size: AppThemeVariables.iconLg),
             label: Text(''),
@@ -85,22 +84,23 @@ class _SidebarState extends ConsumerState<Sidebar> {
             label: Text(''),
           ),
         ],
-        trailing: Column(
+        trailing: const Column(
           children: [
-            // Кнопки синхронизации и настроек
             IconButton(
-              icon: const Icon(LucideIcons.refreshCw),
+              mouseCursor: SystemMouseCursors.forbidden,
+              icon: Icon(LucideIcons.refreshCw),
               tooltip: 'Синхронизация',
-              onPressed: () {},
+              onPressed: null, // Заблокировано
               iconSize: AppThemeVariables.iconLg,
             ),
             IconButton(
-              icon: const Icon(LucideIcons.settings),
+              mouseCursor: SystemMouseCursors.forbidden,
+              icon: Icon(LucideIcons.settings),
               tooltip: 'Настройки',
-              onPressed: () {},
+              onPressed: null, // Заблокировано
               iconSize: AppThemeVariables.iconLg,
             ),
-            const SizedBox(height: AppThemeVariables.xs),
+            SizedBox(height: AppThemeVariables.xs),
           ],
         ),
       ),
@@ -120,7 +120,6 @@ class _SidebarState extends ConsumerState<Sidebar> {
               ? _buildNotesSection(context, notesState)
               : _buildTasksSection(context, tasksState),
         ),
-        const Divider(height: 1),
         _buildFooter(context),
       ],
     );
@@ -128,71 +127,66 @@ class _SidebarState extends ConsumerState<Sidebar> {
 
   // Каталог заметок
   Widget _buildNotesSection(BuildContext context, NotesState notesState) {
-    // Состояние загрузки
     if (notesState.isLoading) {
       return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
 
     final notifier = ref.read(notesProvider.notifier);
 
-    // Рабочее состояние
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(
             vertical: AppThemeVariables.xs,
-            horizontal: AppThemeVariables.xl,
+            horizontal: AppThemeVariables.md,
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.center,
+            spacing: AppThemeVariables.xs,
             children: [
-              // Кнопки управления заметками
               IconButton(
+                mouseCursor: SystemMouseCursors.click,
                 icon: const Icon(LucideIcons.filePlus),
                 tooltip: 'Новая заметка',
                 onPressed: () => notifier.createNote(),
                 visualDensity: VisualDensity.compact,
-                iconSize: AppThemeVariables.iconLg,
+                iconSize: AppThemeVariables.iconMd,
               ),
               IconButton(
+                mouseCursor: SystemMouseCursors.click,
                 icon: const Icon(LucideIcons.folderPlus),
                 tooltip: 'Новая папка',
                 onPressed: () => notifier.createFolder(),
                 visualDensity: VisualDensity.compact,
-                iconSize: AppThemeVariables.iconLg,
+                iconSize: AppThemeVariables.iconMd,
               ),
-              IconButton(
-                icon: const Icon(LucideIcons.refreshCw),
-                tooltip: 'Обновить',
-                onPressed: () => notifier.refreshTree(),
-                visualDensity: VisualDensity.compact,
-                iconSize: AppThemeVariables.iconLg,
-              ),
-              IconButton(
-                icon: const Icon(LucideIcons.listChevronsDownUp),
+              const IconButton(
+                mouseCursor: SystemMouseCursors.forbidden,
+                icon: Icon(LucideIcons.listChevronsDownUp),
                 tooltip: 'Свернуть/Развернуть всё',
-                onPressed: () {},
+                onPressed: null, // Выключено
                 visualDensity: VisualDensity.compact,
-                iconSize: AppThemeVariables.iconLg,
+                iconSize: AppThemeVariables.iconMd,
               ),
-              IconButton(
-                icon: const Icon(LucideIcons.arrowUpAZ),
+              const IconButton(
+                mouseCursor: SystemMouseCursors.forbidden,
+                icon: Icon(LucideIcons.arrowUpAZ),
                 tooltip: 'Сортировка',
-                onPressed: () {},
+                onPressed: null, // Выключено
                 visualDensity: VisualDensity.compact,
-                iconSize: AppThemeVariables.iconLg,
+                iconSize: AppThemeVariables.iconMd,
               ),
-              IconButton(
-                icon: const Icon(LucideIcons.search),
+              const IconButton(
+                mouseCursor: SystemMouseCursors.forbidden,
+                icon: Icon(LucideIcons.search),
                 tooltip: 'Поиск',
-                onPressed: () {},
+                onPressed: null, // Выключено
                 visualDensity: VisualDensity.compact,
-                iconSize: AppThemeVariables.iconLg,
+                iconSize: AppThemeVariables.iconMd,
               ),
             ],
           ),
         ),
-        // Файловое дерево (file_tree_view.dart)
         Expanded(child: FileTreeView(nodes: notesState.nodes)),
       ],
     );
@@ -211,29 +205,39 @@ class _SidebarState extends ConsumerState<Sidebar> {
         Padding(
           padding: const EdgeInsets.symmetric(
             vertical: AppThemeVariables.xs,
-            horizontal: AppThemeVariables.xl,
+            horizontal: AppThemeVariables.md,
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.center,
+            spacing: AppThemeVariables.xs,
             children: [
               IconButton(
+                mouseCursor: SystemMouseCursors.click,
                 icon: const Icon(LucideIcons.clipboardPlus),
                 tooltip: 'Новая доска',
                 onPressed: () => notifier.createBoard('Новая доска'),
                 visualDensity: VisualDensity.compact,
-                iconSize: AppThemeVariables.iconLg,
+                iconSize: AppThemeVariables.iconMd,
               ),
-              IconButton(
-                icon: const Icon(LucideIcons.refreshCw),
-                tooltip: 'Обновить',
-                onPressed: () => notifier.initTasks(),
+              const IconButton(
+                mouseCursor: SystemMouseCursors.forbidden,
+                icon: Icon(LucideIcons.arrowUpAZ),
+                tooltip: 'Сортировка',
+                onPressed: null, // Выключено
                 visualDensity: VisualDensity.compact,
-                iconSize: AppThemeVariables.iconLg,
+                iconSize: AppThemeVariables.iconMd,
+              ),
+              const IconButton(
+                mouseCursor: SystemMouseCursors.forbidden,
+                icon: Icon(LucideIcons.search),
+                tooltip: 'Поиск',
+                onPressed: null, // Выключено
+                visualDensity: VisualDensity.compact,
+                iconSize: AppThemeVariables.iconMd,
               ),
             ],
           ),
         ),
-        // Каталог
         const Expanded(child: BoardsListView()),
       ],
     );
@@ -241,107 +245,127 @@ class _SidebarState extends ConsumerState<Sidebar> {
 
   // Выбор раздела (заметки/задачи)
   Widget _buildTabSelector(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Padding(
-            padding: EdgeInsets.all(AppThemeVariables.xs),
-            child: SegmentedButton<int>(
-              showSelectedIcon: false,
-              style: ButtonStyle(
-                shape: WidgetStatePropertyAll(
-                  RoundedRectangleBorder(
-                    borderRadius: AppThemeVariables.borderRadiusXs,
-                  ),
-                ),
-                visualDensity: VisualDensity.compact,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    return Padding(
+      padding: const EdgeInsets.only(
+        top: AppThemeVariables.xs,
+        bottom: AppThemeVariables.xs,
+        left: AppThemeVariables.xs,
+        right: AppThemeVariables.xxs,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              label: Text('Заметки', style: context.h3),
+              icon: Icon(
+                LucideIcons.fileText,
+                size: AppThemeVariables.iconLg,
+                color: widget.selectedTab == 0
+                    ? context.colors.primary
+                    : context.colors.onSurfaceVariant,
               ),
-              segments: [
-                ButtonSegment<int>(
-                  // Кнопка раздела заметок
-                  value: 0,
-                  icon: Icon(
-                    LucideIcons.fileText,
-                    size: AppThemeVariables.iconLg,
-                    color: context.colors.primary,
-                  ),
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppThemeVariables.xs,
-                    ),
-                    child: Text('Заметки', style: context.h3),
-                  ),
+              onPressed: () => widget.onTabChanged(0),
+              style: OutlinedButton.styleFrom(
+                enabledMouseCursor: SystemMouseCursors.click,
+                backgroundColor: widget.selectedTab == 0
+                    ? context.colors.surfaceContainerHigh
+                    : Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppThemeVariables.xs),
                 ),
-                ButtonSegment<int>(
-                  // Кнопка раздела задач
-                  value: 1,
-                  icon: Icon(
-                    LucideIcons.squareKanban,
-                    size: AppThemeVariables.iconLg,
-                    color: context.colors.primary,
-                  ),
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppThemeVariables.xs,
-                    ),
-                    child: Text('Задачи', style: context.h3),
-                  ),
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppThemeVariables.sm,
                 ),
-              ],
-              selected: {widget.selectedTab},
-              onSelectionChanged: (Set<int> newSelection) {
-                widget.onTabChanged(newSelection.first);
-              },
+              ),
             ),
           ),
-        ),
-        IconButton(
-          // Кнопка переключения состояния панели (свернуть)
-          icon: const Icon(LucideIcons.panelLeftClose),
-          tooltip: 'Свернуть панель',
-          onPressed: widget.onToggleSidebar,
-          visualDensity: VisualDensity.compact,
-          iconSize: AppThemeVariables.iconLg,
-        ),
-        SizedBox(width: AppThemeVariables.xs),
-      ],
+          const SizedBox(width: AppThemeVariables.xs),
+          Expanded(
+            child: OutlinedButton.icon(
+              label: Text('Задачи', style: context.h3),
+              icon: Icon(
+                LucideIcons.clipboardList,
+                size: AppThemeVariables.iconLg,
+                color: widget.selectedTab == 1
+                    ? context.colors.primary
+                    : context.colors.onSurfaceVariant,
+              ),
+              onPressed: () => widget.onTabChanged(1),
+              style: OutlinedButton.styleFrom(
+                enabledMouseCursor: SystemMouseCursors.click,
+                backgroundColor: widget.selectedTab == 1
+                    ? context.colors.surfaceContainerHigh
+                    : Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppThemeVariables.sm,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppThemeVariables.xxs),
+          IconButton(
+            mouseCursor: SystemMouseCursors.click,
+            icon: const Icon(LucideIcons.panelLeftClose),
+            tooltip: 'Свернуть панель',
+            onPressed: widget.onToggleSidebar,
+            visualDensity: VisualDensity.compact,
+            iconSize: AppThemeVariables.iconLg,
+          ),
+        ],
+      ),
     );
   }
 
   // Футер
   Widget _buildFooter(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(
-        vertical: AppThemeVariables.xs,
-        horizontal: AppThemeVariables.xxs,
-      ),
+      padding: const EdgeInsets.all(AppThemeVariables.xs),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        spacing: AppThemeVariables.xxs,
         children: [
           Expanded(
-            child: TextButton.icon(
-              // Кнопка синхронизации
-              label: Text('Синхронизация', style: context.bodySecondary),
+            child: OutlinedButton.icon(
+              onPressed: null, // Выключено
+              label: const Text('Синхронизация'),
               icon: const Icon(
                 LucideIcons.refreshCw,
                 size: AppThemeVariables.iconSm,
               ),
-              onPressed: () {},
-              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+              style: OutlinedButton.styleFrom(
+                enabledMouseCursor: SystemMouseCursors.click,
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppThemeVariables.xs,
+                  horizontal: AppThemeVariables.xxs,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+                ),
+                visualDensity: VisualDensity.compact,
+              ),
             ),
           ),
+          const SizedBox(width: AppThemeVariables.xs),
           Expanded(
-            child: TextButton.icon(
-              // Кнопка настроек
-              label: Text('Настройки', style: context.bodySecondary),
+            child: OutlinedButton.icon(
+              onPressed: null, // Выключено
+              label: const Text('Настройки'),
               icon: const Icon(
                 LucideIcons.settings,
                 size: AppThemeVariables.iconSm,
               ),
-              onPressed: () {},
-              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+              style: OutlinedButton.styleFrom(
+                enabledMouseCursor: SystemMouseCursors.click,
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppThemeVariables.xs,
+                  horizontal: AppThemeVariables.xxs,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+                ),
+                visualDensity: VisualDensity.compact,
+              ),
             ),
           ),
         ],

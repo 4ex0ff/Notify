@@ -27,6 +27,7 @@ class TasksScreen extends ConsumerStatefulWidget {
 class _TasksScreenState extends ConsumerState<TasksScreen> {
   // ignore: deprecated_member_use
   final BoardViewController _boardController = BoardViewController();
+  String? _hoveredTaskId;
 
   @override
   Widget build(BuildContext context) {
@@ -142,17 +143,74 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                   },
                 ),
               ),
-              TextButton.icon(
-                onPressed: () {
-                  ref
-                      .read(tasksProvider.notifier)
-                      .createColumn('Новый столбец');
-                },
-                icon: const Icon(
-                  LucideIcons.plus,
-                  size: AppThemeVariables.iconSm,
+              Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+                child: InkWell(
+                  mouseCursor: SystemMouseCursors.click,
+                  hoverColor: context.colors.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+                  onTapUp: (details) {
+                    showAppContextMenu<String>(
+                      context: context,
+                      position: details.globalPosition,
+                      items: const [
+                        ContextMenuItem(
+                          value: 'rename',
+                          title: 'Переименовать доску',
+                          icon: LucideIcons.pencil,
+                        ),
+                        ContextMenuItem(
+                          value: 'addColumn',
+                          title: 'Добавить столбец',
+                          icon: LucideIcons.plus,
+                        ),
+                        ContextMenuItem(
+                          value: 'clearCompleted',
+                          title: 'Очистить выполненные',
+                          icon: LucideIcons.checkCheck,
+                        ),
+                        ContextMenuDivider(),
+                        ContextMenuItem(
+                          value: 'deleteBoard',
+                          title: 'Удалить доску',
+                          icon: LucideIcons.trash2,
+                          isDestructive: true,
+                        ),
+                      ],
+                    ).then((action) {
+                      if (!context.mounted) return;
+
+                      if (action == 'addColumn') {
+                        ref
+                            .read(tasksProvider.notifier)
+                            .createColumn('Новый столбец');
+                      } else if (action == 'deleteBoard') {
+                        showConfirmDialog(
+                          context,
+                          title: 'Удалить доску "${selectedBoard.title}"?',
+                          message:
+                              'Все столбцы и задачи этой доски будут удалены безвозвратно.',
+                          confirmText: 'Удалить',
+                        ).then((confirmed) {
+                          if (confirmed == true && context.mounted) {
+                            ref
+                                .read(tasksProvider.notifier)
+                                .deleteBoard(selectedBoard.id);
+                          }
+                        });
+                      }
+                    });
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppThemeVariables.xxs),
+                    child: Icon(
+                      LucideIcons.ellipsisVertical,
+                      size: AppThemeVariables.iconMd,
+                      color: context.colors.onSurfaceVariant,
+                    ),
+                  ),
                 ),
-                label: const Text('Добавить столбец'),
               ),
             ],
           ),
@@ -203,8 +261,8 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
       padding: const EdgeInsets.symmetric(horizontal: AppThemeVariables.xxs),
       child: Container(
         padding: const EdgeInsets.symmetric(
-          vertical: AppThemeVariables.md,
-          horizontal: AppThemeVariables.md,
+          vertical: AppThemeVariables.sm,
+          horizontal: AppThemeVariables.sm,
         ),
         decoration: BoxDecoration(
           color: context.colors.surfaceContainerHigh,
@@ -214,6 +272,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
         ),
         child: Row(
           children: [
+            SizedBox(width: AppThemeVariables.xxs),
             Expanded(
               child: InlineEditText(
                 text: title,
@@ -226,55 +285,75 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                 },
               ),
             ),
-            InkWell(
-              borderRadius: AppThemeVariables.borderRadiusSm,
-              onTap: () {
-                ref
-                    .read(tasksProvider.notifier)
-                    .createTask(columnId, 'Новая задача');
-              },
-              child: Icon(
-                LucideIcons.plus,
-                size: AppThemeVariables.iconSm,
-                color: context.colors.onSurfaceVariant,
+            Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+              child: InkWell(
+                mouseCursor: SystemMouseCursors.click,
+                hoverColor: context.colors.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+                onTap: () {
+                  ref
+                      .read(tasksProvider.notifier)
+                      .createTask(columnId, 'Новая задача');
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(AppThemeVariables.xxs),
+                  child: Icon(
+                    LucideIcons.plus,
+                    size: AppThemeVariables.iconMd,
+                    color: context.colors.onSurfaceVariant,
+                  ),
+                ),
               ),
             ),
-            SizedBox(width: AppThemeVariables.xs),
-            GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTapDown: (details) async {
-                showAppContextMenu<String>(
-                  context: context,
-                  position: details.globalPosition,
-                  items: const [
-                    ContextMenuItem(
-                      value: 'delete',
-                      title: 'Удалить',
-                      icon: LucideIcons.trash2,
-                      isDestructive: true,
-                    ),
-                  ],
-                ).then((action) {
-                  if (!context.mounted) return;
+            SizedBox(width: AppThemeVariables.xxs),
+            Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+              child: InkWell(
+                mouseCursor: SystemMouseCursors.click,
+                hoverColor: context.colors.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+                onTapUp: (details) {
+                  showAppContextMenu<String>(
+                    context: context,
+                    position: details.globalPosition,
+                    items: const [
+                      ContextMenuItem(
+                        value: 'delete',
+                        title: 'Удалить',
+                        icon: LucideIcons.trash2,
+                        isDestructive: true,
+                      ),
+                    ],
+                  ).then((action) {
+                    if (!context.mounted) return;
 
-                  if (action == 'delete') {
-                    showConfirmDialog(
-                      context,
-                      title: 'Удалить столбец "$title"?',
-                      message: 'Все задачи в этом столбце будут удалены.',
-                      confirmText: 'Удалить',
-                    ).then((confirmed) {
-                      if (confirmed == true && context.mounted) {
-                        ref.read(tasksProvider.notifier).deleteColumn(columnId);
-                      }
-                    });
-                  }
-                });
-              },
-              child: Icon(
-                LucideIcons.ellipsisVertical,
-                size: AppThemeVariables.iconSm,
-                color: context.colors.onSurfaceVariant,
+                    if (action == 'delete') {
+                      showConfirmDialog(
+                        context,
+                        title: 'Удалить столбец "$title"?',
+                        message: 'Все задачи в этом столбце будут удалены.',
+                        confirmText: 'Удалить',
+                      ).then((confirmed) {
+                        if (confirmed == true && context.mounted) {
+                          ref
+                              .read(tasksProvider.notifier)
+                              .deleteColumn(columnId);
+                        }
+                      });
+                    }
+                  });
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(AppThemeVariables.xxs),
+                  child: Icon(
+                    LucideIcons.ellipsisVertical,
+                    size: AppThemeVariables.iconMd,
+                    color: context.colors.onSurfaceVariant,
+                  ),
+                ),
               ),
             ),
           ],
@@ -315,6 +394,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
               title: 'Редактировать',
               icon: LucideIcons.pencil,
             ),
+            ContextMenuDivider(),
             ContextMenuItem(
               value: 'delete',
               title: 'Удалить',
@@ -337,7 +417,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
         padding: const EdgeInsets.all(AppThemeVariables.md),
         decoration: BoxDecoration(
           color: context.colors.surface,
-          borderRadius: AppThemeVariables.borderRadiusSm,
+          borderRadius: BorderRadius.circular(AppThemeVariables.xs),
           border: Border.all(
             color: context.colors.outlineVariant.withAlpha(125),
           ),
@@ -349,9 +429,27 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
             GestureDetector(
               behavior: HitTestBehavior.translucent,
               onTap: () => _openTaskDetails(context, columnId, task),
-              child: Text(
-                task.title,
-                style: context.body!.copyWith(fontWeight: FontWeight.w600),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                onEnter: (_) => setState(() => _hoveredTaskId = task.id),
+                onExit: (_) {
+                  if (_hoveredTaskId == task.id) {
+                    setState(() => _hoveredTaskId = null);
+                  }
+                },
+                child: Text(
+                  task.title,
+                  style: context.body!.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: _hoveredTaskId == task.id
+                        ? context.colors.primary
+                        : null,
+                    decoration: _hoveredTaskId == task.id
+                        ? TextDecoration.underline
+                        : TextDecoration.none,
+                    decorationColor: context.colors.primary,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: AppThemeVariables.sm),
@@ -465,7 +563,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
       ),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: AppThemeVariables.borderRadiusSm,
+        borderRadius: BorderRadius.circular(AppThemeVariables.xs),
       ),
       child: Text(
         label,

@@ -7,6 +7,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../models/tasks/task.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_theme_variables.dart';
+import '../common/app_quill_toolbar.dart';
+import '../common/app_context_menu.dart';
 
 class DetailedTaskDialog extends StatefulWidget {
   final Task task;
@@ -51,6 +53,8 @@ class _DetailedTaskDialogState extends State<DetailedTaskDialog> {
   late QuillController _quillController;
   late TaskPriority _selectedPriority;
   DateTime? _selectedDueDate;
+  bool _isDescriptionEditing = false;
+  final GlobalKey _priorityKey = GlobalKey();
 
   @override
   void initState() {
@@ -62,6 +66,7 @@ class _DetailedTaskDialogState extends State<DetailedTaskDialog> {
 
     _titleController.addListener(_onTitleChanged);
     _quillController = _initQuillController(widget.task.description);
+    _quillController.readOnly = true;
   }
 
   void _onTitleChanged() {
@@ -126,9 +131,10 @@ class _DetailedTaskDialogState extends State<DetailedTaskDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: context.colors.surface,
+      backgroundColor: context.colors.surfaceContainerLowest,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppThemeVariables.lg),
+        side: BorderSide(color: context.colors.outlineVariant),
+        borderRadius: BorderRadius.circular(AppThemeVariables.md),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 750, maxHeight: 800),
@@ -137,58 +143,17 @@ class _DetailedTaskDialogState extends State<DetailedTaskDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. ВЕРХНЯЯ СТРОКА: Динамический заголовок и Закрытие
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Expanded(
-                    child: Text(
-                      _titleController.text.trim().isEmpty
-                          ? 'Новая задача'
-                          : _titleController.text,
-                      style: context.bodySecondary,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(LucideIcons.x),
-                    iconSize: AppThemeVariables.iconSm,
+                    iconSize: AppThemeVariables.iconMd,
                     tooltip: 'Закрыть',
                   ),
                 ],
               ),
-              const Divider(height: AppThemeVariables.md),
-
-              // 2. ТУЛБАР РЕДАКТОРА (QuillSimpleToolbar)
-              Container(
-                decoration: BoxDecoration(
-                  color: context.colors.surfaceContainerLow,
-                  borderRadius: AppThemeVariables.borderRadiusSm,
-                ),
-                child: QuillSimpleToolbar(
-                  controller: _quillController,
-                  config: const QuillSimpleToolbarConfig(
-                    showFontFamily: false,
-                    showFontSize: false,
-                    showSearchButton: false,
-                    showInlineCode: false,
-                    showSubscript: false,
-                    showSuperscript: false,
-                    showColorButton: false,
-                    showBackgroundColorButton: false,
-                    showAlignmentButtons: false,
-                    showDirection: false,
-                    showLink: false,
-                    showCodeBlock: false,
-                    showQuote: false,
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppThemeVariables.md),
-
-              // 3. ПОЛЕ НАЗВАНИЯ + ПРИОРИТЕТ + ДАТА
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -212,37 +177,79 @@ class _DetailedTaskDialogState extends State<DetailedTaskDialog> {
               ),
               const SizedBox(height: AppThemeVariables.md),
 
-              // 4. ОСНОВНОЙ РЕДАКТОР (QuillEditor)
               Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(AppThemeVariables.xs),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: context.colors.outlineVariant.withAlpha(100),
+                child: Column(
+                  children: [
+                    _buildDescriptionModeBar(context),
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: context.colors.surface,
+                          borderRadius: BorderRadius.circular(
+                            AppThemeVariables.xs,
+                          ),
+                        ),
+                        padding: const EdgeInsets.all(AppThemeVariables.md),
+                        child: QuillEditor.basic(controller: _quillController),
+                      ),
                     ),
-                    borderRadius: AppThemeVariables.borderRadiusSm,
-                  ),
-                  child: QuillEditor.basic(controller: _quillController),
+                  ],
                 ),
               ),
               const SizedBox(height: AppThemeVariables.md),
 
-              // 5. КНОПКИ УПРАВЛЕНИЯ
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Назад'),
+                  Material(
+                    color: context.colors.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+                    child: InkWell(
+                      onTap: () => Navigator.of(context).pop(),
+                      mouseCursor: SystemMouseCursors.click,
+                      borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppThemeVariables.xxs + 2,
+                          horizontal: AppThemeVariables.lg,
+                        ),
+                        child: Text('Назад', style: context.body),
+                      ),
+                    ),
                   ),
                   const SizedBox(width: AppThemeVariables.xs),
-                  ElevatedButton.icon(
-                    onPressed: _save,
-                    icon: const Icon(
-                      LucideIcons.check,
-                      size: AppThemeVariables.iconSm,
+                  Material(
+                    color: context.colors.primary,
+                    borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+                    child: InkWell(
+                      onTap: _save,
+                      mouseCursor: SystemMouseCursors.click,
+                      hoverColor: context.colors.secondary.withAlpha(150),
+                      borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppThemeVariables.xxs + 2,
+                          horizontal: AppThemeVariables.lg,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              LucideIcons.check,
+                              size: AppThemeVariables.iconMd,
+                              color: context.colors.onPrimary,
+                            ),
+                            SizedBox(width: AppThemeVariables.xxs),
+                            Text(
+                              'Сохранить',
+                              style: context.body!.copyWith(
+                                color: context.colors.onPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    label: const Text('Сохранить'),
                   ),
                 ],
               ),
@@ -253,38 +260,208 @@ class _DetailedTaskDialogState extends State<DetailedTaskDialog> {
     );
   }
 
-  Widget _buildPrioritySelector() {
-    return PopupMenuButton<TaskPriority>(
-      initialValue: _selectedPriority,
-      onSelected: (priority) => setState(() => _selectedPriority = priority),
-      itemBuilder: (context) => const [
-        PopupMenuItem(value: TaskPriority.low, child: Text('Низкий')),
-        PopupMenuItem(value: TaskPriority.medium, child: Text('Средний')),
-        PopupMenuItem(value: TaskPriority.high, child: Text('Высокий')),
-      ],
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppThemeVariables.sm,
-          vertical: AppThemeVariables.xs,
-        ),
-        decoration: BoxDecoration(
-          color: context.colors.surfaceContainerHigh,
-          borderRadius: AppThemeVariables.borderRadiusSm,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              LucideIcons.flag,
-              size: AppThemeVariables.iconSm,
-              color: context.colors.primary,
+  Widget _buildDescriptionModeBar(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppThemeVariables.md),
+      child: Row(
+        children: [
+          Material(
+            color: !_isDescriptionEditing
+                ? context.colors.surface
+                : context.colors.surfaceContainerHigh,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppThemeVariables.xs),
             ),
-            const SizedBox(width: AppThemeVariables.xxs),
-            Text(
-              _getPriorityLabel(_selectedPriority),
-              style: context.bodySmall,
+            child: InkWell(
+              onTap: () => setState(() {
+                _isDescriptionEditing = false;
+                _quillController.readOnly = true;
+              }),
+              mouseCursor: SystemMouseCursors.click,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(AppThemeVariables.xs),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppThemeVariables.xs,
+                  vertical: AppThemeVariables.xs - 1,
+                ),
+                child: Text('Просмотр', style: context.bodySecondary),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppThemeVariables.xs),
+          Material(
+            color: _isDescriptionEditing
+                ? context.colors.surface
+                : context.colors.surfaceContainerHigh,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(AppThemeVariables.xs),
+              topRight: _isDescriptionEditing
+                  ? Radius.circular(0)
+                  : Radius.circular(AppThemeVariables.xs),
+            ),
+            child: InkWell(
+              mouseCursor: SystemMouseCursors.click,
+              onTap: () => setState(() {
+                _isDescriptionEditing = true;
+                _quillController.readOnly = false;
+              }),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(AppThemeVariables.xs),
+                topRight: _isDescriptionEditing
+                    ? Radius.circular(0)
+                    : Radius.circular(AppThemeVariables.xs),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppThemeVariables.xs,
+                  vertical: AppThemeVariables.xs - 1,
+                ),
+                child: Text('Редактор', style: context.bodySecondary),
+              ),
+            ),
+          ),
+          if (_isDescriptionEditing) ...[
+            Expanded(
+              child: AppQuillToolbar(
+                controller: _quillController,
+                isCompact: true,
+                backgroundColor: context.colors.surface,
+                border: Border(),
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(AppThemeVariables.xs),
+                ),
+              ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPrioritySelector() {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Material(
+        key: _priorityKey,
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: switch (_selectedPriority) {
+              TaskPriority.high => const Color.fromARGB(255, 79, 31, 29),
+              TaskPriority.medium => const Color.fromARGB(255, 75, 50, 19),
+              TaskPriority.low => const Color.fromARGB(255, 38, 56, 44),
+            },
+            borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+          ),
+          child: InkWell(
+            mouseCursor: SystemMouseCursors.click,
+            hoverColor: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+            onTap: () {
+              final renderObject = _priorityKey.currentContext
+                  ?.findRenderObject();
+              if (renderObject is! RenderBox) return;
+
+              final position = renderObject.localToGlobal(
+                Offset(0, renderObject.size.height),
+              );
+
+              showAppContextMenu<TaskPriority>(
+                context: context,
+                position: position,
+                items: const [
+                  ContextMenuItem(
+                    value: TaskPriority.low,
+                    title: 'Низкий',
+                    icon: LucideIcons.flag,
+                  ),
+                  ContextMenuItem(
+                    value: TaskPriority.medium,
+                    title: 'Средний',
+                    icon: LucideIcons.flag,
+                  ),
+                  ContextMenuItem(
+                    value: TaskPriority.high,
+                    title: 'Высокий',
+                    icon: LucideIcons.flag,
+                  ),
+                ],
+              ).then((priority) {
+                if (priority != null && mounted) {
+                  setState(() => _selectedPriority = priority);
+                }
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppThemeVariables.sm,
+                vertical: AppThemeVariables.xs,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    LucideIcons.flag,
+                    size: AppThemeVariables.iconSm,
+                    color: switch (_selectedPriority) {
+                      TaskPriority.high => const Color.fromARGB(
+                        255,
+                        249,
+                        198,
+                        194,
+                      ),
+                      TaskPriority.medium => const Color.fromARGB(
+                        255,
+                        253,
+                        221,
+                        183,
+                      ),
+                      TaskPriority.low => const Color.fromARGB(
+                        255,
+                        218,
+                        241,
+                        225,
+                      ),
+                    },
+                  ),
+                  const SizedBox(width: AppThemeVariables.xxs),
+                  Text(
+                    switch (_selectedPriority) {
+                      TaskPriority.high => 'Высокий',
+                      TaskPriority.medium => 'Средний',
+                      TaskPriority.low => 'Низкий',
+                    },
+                    style: context.bodySmall?.copyWith(
+                      color: switch (_selectedPriority) {
+                        TaskPriority.high => const Color.fromARGB(
+                          255,
+                          249,
+                          198,
+                          194,
+                        ),
+                        TaskPriority.medium => const Color.fromARGB(
+                          255,
+                          253,
+                          221,
+                          183,
+                        ),
+                        TaskPriority.low => const Color.fromARGB(
+                          255,
+                          218,
+                          241,
+                          225,
+                        ),
+                      },
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -295,53 +472,60 @@ class _DetailedTaskDialogState extends State<DetailedTaskDialog> {
         ? '${_selectedDueDate!.day.toString().padLeft(2, '0')}.${_selectedDueDate!.month.toString().padLeft(2, '0')}.${_selectedDueDate!.year}'
         : 'Дата';
 
-    return InkWell(
-      onTap: _selectDueDate,
-      borderRadius: AppThemeVariables.borderRadiusSm,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppThemeVariables.sm,
-          vertical: AppThemeVariables.xs,
-        ),
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+      child: Ink(
         decoration: BoxDecoration(
           color: context.colors.surfaceContainerHigh,
-          borderRadius: AppThemeVariables.borderRadiusSm,
+          borderRadius: BorderRadius.circular(AppThemeVariables.xs),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              LucideIcons.calendar,
-              size: AppThemeVariables.iconSm,
-              color: context.colors.onSurfaceVariant,
+        child: InkWell(
+          mouseCursor: SystemMouseCursors.click,
+          hoverColor: context.colors.surfaceContainerHighest,
+          onTap: _selectDueDate,
+          borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppThemeVariables.sm,
+              vertical: AppThemeVariables.xs,
             ),
-            const SizedBox(width: AppThemeVariables.xxs),
-            Text(dateText, style: context.bodySmall),
-            if (_selectedDueDate != null) ...[
-              const SizedBox(width: AppThemeVariables.xxs),
-              GestureDetector(
-                onTap: () => setState(() => _selectedDueDate = null),
-                child: Icon(
-                  LucideIcons.x,
-                  size: 14,
-                  color: context.colors.error,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  LucideIcons.calendar,
+                  size: AppThemeVariables.iconSm,
+                  color: context.colors.onSurface,
                 ),
-              ),
-            ],
-          ],
+                const SizedBox(width: AppThemeVariables.xxs),
+                Text(
+                  dateText,
+                  style: context.bodySmall!.copyWith(
+                    color: context.colors.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (_selectedDueDate != null) ...[
+                  const SizedBox(width: AppThemeVariables.xxs),
+                  GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () => setState(() => _selectedDueDate = null),
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Icon(
+                        LucideIcons.x,
+                        size: 14,
+                        color: context.colors.error,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
-  }
-
-  String _getPriorityLabel(TaskPriority priority) {
-    switch (priority) {
-      case TaskPriority.high:
-        return 'Высокий';
-      case TaskPriority.medium:
-        return 'Средний';
-      case TaskPriority.low:
-        return 'Низкий';
-    }
   }
 }

@@ -53,6 +53,7 @@ class _BoardsListViewState extends ConsumerState<BoardsListView> {
           title: 'Обновить',
           icon: LucideIcons.refreshCw,
         ),
+        ContextMenuDivider(),
         ContextMenuItem(
           value: 'delete',
           title: 'Удалить',
@@ -139,39 +140,52 @@ class _BoardsListViewState extends ConsumerState<BoardsListView> {
                     board.id,
                     board.title,
                   ),
-                  child: InkWell(
-                    borderRadius: AppThemeVariables.borderRadiusXs,
-                    onTap: () => notifier.selectBoard(board.id),
-                    child: Container(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppThemeVariables.xxs,
+                      horizontal: AppThemeVariables.xs,
+                    ),
+                    child: Material(
                       color: isSelected
-                          ? context.colors.surfaceContainerHigh
+                          ? context.colors.surfaceContainerHighest
                           : Colors.transparent,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppThemeVariables.xs,
-                        horizontal: AppThemeVariables.xs,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            LucideIcons.clipboardList,
-                            size: AppThemeVariables.iconMd,
-                            color: isSelected
-                                ? context.colors.primary
-                                : context.colors.onSurfaceVariant,
+                      borderRadius: BorderRadius.circular(AppThemeVariables.xs),
+                      child: InkWell(
+                        mouseCursor: SystemMouseCursors.click,
+                        hoverColor: context.colors.surfaceContainerHigh,
+                        splashColor: context.colors.primary.withValues(
+                          alpha: 0.16,
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          AppThemeVariables.xs,
+                        ),
+                        onTap: () => notifier.selectBoard(board.id),
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppThemeVariables.xs),
+                          child: Row(
+                            children: [
+                              Icon(
+                                LucideIcons.clipboardList,
+                                size: AppThemeVariables.iconMd,
+                                color: isSelected
+                                    ? context.colors.primary
+                                    : context.colors.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: AppThemeVariables.xs),
+                              Expanded(
+                                child: InlineEditText(
+                                  key: _getKeyForBoard(board.id),
+                                  text: board.title,
+                                  style: context.body,
+                                  trigger: InlineEditTrigger.doubleTap,
+                                  onSubmitted: (newTitle) {
+                                    notifier.renameBoard(board.id, newTitle);
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: AppThemeVariables.xs),
-                          Expanded(
-                            child: InlineEditText(
-                              key: _getKeyForBoard(board.id),
-                              text: board.title,
-                              style: context.body,
-                              trigger: InlineEditTrigger.doubleTap,
-                              onSubmitted: (newTitle) {
-                                notifier.renameBoard(board.id, newTitle);
-                              },
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),

@@ -3,11 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_fancy_tree_view/flutter_fancy_tree_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:notify/widgets/common/app_context_menu.dart';
+import 'package:notify/widgets/common/confirm_dialog.dart';
 import 'package:path/path.dart' as p;
 import 'package:notify/theme/app_theme_variables.dart';
 import '../../models/notes/note_node.dart';
 import '../../providers/notes_provider.dart';
 import '../../theme/app_theme.dart';
+import '../common/inline_edit_text.dart';
 
 class FileTreeView extends ConsumerStatefulWidget {
   final List<NoteNode> nodes;
@@ -88,74 +91,34 @@ class _FileTreeViewState extends ConsumerState<FileTreeView> {
     }
   }
 
-  void _showContextMenu(BuildContext context, Offset position, NoteNode node) {
+  void _showItemMenu(BuildContext context, Offset position, NoteNode node) {
     final notifier = ref.read(notesProvider.notifier);
 
-    showMenu<String>(
+    showAppContextMenu<String>(
       context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
-      ),
-      items: [
-        PopupMenuItem(
+      position: position,
+      items: const [
+        ContextMenuItem(
           value: 'create_file',
-          height: AppThemeVariables.xl,
-          child: Row(
-            children: [
-              const Icon(LucideIcons.filePlus, size: AppThemeVariables.iconSm),
-              const SizedBox(width: AppThemeVariables.xs),
-              Text('Новая заметка', style: context.bodySecondary),
-            ],
-          ),
+          title: 'Новая заметка',
+          icon: LucideIcons.filePlus,
         ),
-        PopupMenuItem(
+        ContextMenuItem(
           value: 'create_folder',
-          height: AppThemeVariables.xl,
-          child: Row(
-            children: [
-              const Icon(
-                LucideIcons.folderPlus,
-                size: AppThemeVariables.iconSm,
-              ),
-              const SizedBox(width: AppThemeVariables.xs),
-              Text('Новая папка', style: context.bodySecondary),
-            ],
-          ),
+          title: 'Новая папка',
+          icon: LucideIcons.folderPlus,
         ),
-        PopupMenuItem(
+        ContextMenuItem(
           value: 'rename',
-          height: AppThemeVariables.xl,
-          child: Row(
-            children: [
-              const Icon(LucideIcons.pencil, size: AppThemeVariables.iconSm),
-              const SizedBox(width: AppThemeVariables.xs),
-              Text('Переименовать', style: context.bodySecondary),
-            ],
-          ),
+          title: 'Переименовать',
+          icon: LucideIcons.pencil,
         ),
-        PopupMenuDivider(),
-        PopupMenuItem(
+        ContextMenuDivider(),
+        ContextMenuItem(
           value: 'delete',
-          height: AppThemeVariables.xl,
-          child: Row(
-            children: [
-              Icon(
-                LucideIcons.trash2,
-                size: AppThemeVariables.iconSm,
-                color: context.colors.error,
-              ),
-              const SizedBox(width: AppThemeVariables.xs),
-              Text(
-                'Удалить',
-                style: context.bodySecondary?.copyWith(
-                  color: context.colors.error,
-                ),
-              ),
-            ],
-          ),
+          title: 'Удалить',
+          icon: LucideIcons.trash2,
+          isDestructive: true,
         ),
       ],
     ).then((action) {
@@ -165,18 +128,50 @@ class _FileTreeViewState extends ConsumerState<FileTreeView> {
         notifier.createFolder(node);
       } else if (action == 'rename') {
         notifier.startEditing(node.path);
-      } else if (action == 'delete') {
-        notifier.deleteNode(node);
+      } else if (action == 'delete' && context.mounted) {
+        showConfirmDialog(
+          context,
+          title: node.isDirectory ? 'Удалить папку?' : 'Удалить заметку?',
+          message: 'Данные будут удалены безвозвратно.',
+          confirmText: 'Удалить',
+        ).then((confirmed) {
+          if (confirmed) {
+            notifier.deleteNode(node);
+          }
+        });
+      }
+    });
+  }
+
+  void _showBackgroundMenu(BuildContext context, Offset position) {
+    final notifier = ref.read(notesProvider.notifier);
+
+    showAppContextMenu<String>(
+      context: context,
+      position: position,
+      items: const [
+        ContextMenuItem(
+          value: 'create_file',
+          title: 'Новая заметка',
+          icon: LucideIcons.filePlus,
+        ),
+        ContextMenuItem(
+          value: 'create_folder',
+          title: 'Новая папка',
+          icon: LucideIcons.folderPlus,
+        ),
+      ],
+    ).then((action) {
+      if (action == 'create_file') {
+        notifier.createNote();
+      } else if (action == 'create_folder') {
+        notifier.createFolder();
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.nodes.isEmpty) {
-      return Center(child: Text('Нет заметок', style: context.bodySmall));
-    }
-
     ref.listen(notesProvider.select((s) => s.editingPath), (previous, next) {
       if (next != null) {
         _setupRenameField(next);
@@ -188,114 +183,150 @@ class _FileTreeViewState extends ConsumerState<FileTreeView> {
     final notesState = ref.watch(notesProvider);
     final notifier = ref.read(notesProvider.notifier);
 
-    return TreeView<NoteNode>(
-      treeController: _treeController,
-      nodeBuilder: (BuildContext context, TreeEntry<NoteNode> entry) {
-        final node = entry.node;
-        final isSelected = notesState.selectedFilePath == node.path;
-        final isEditing = notesState.editingPath == node.path;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onSecondaryTapUp: (details) =>
+          _showBackgroundMenu(context, details.globalPosition),
+      child: widget.nodes.isEmpty
+          ? Center(child: Text('Нет заметок', style: context.bodySmall))
+          : TreeView<NoteNode>(
+              treeController: _treeController,
+              nodeBuilder: (BuildContext context, TreeEntry<NoteNode> entry) {
+                final node = entry.node;
+                final isSelected = notesState.selectedFilePath == node.path;
+                final isEditing = notesState.editingPath == node.path;
 
-        return TreeIndentation(
-          entry: entry,
-          guide: const IndentGuide(indent: AppThemeVariables.md),
-          child: GestureDetector(
-            onSecondaryTapDown: (details) {
-              _showContextMenu(context, details.globalPosition, node);
-            },
-            child: InkWell(
-              borderRadius: AppThemeVariables.borderRadiusXs,
-              onTap: () {
-                if (isEditing) return;
+                return TreeIndentation(
+                  entry: entry,
+                  guide: const IndentGuide(indent: AppThemeVariables.md),
+                  child: GestureDetector(
+                    onSecondaryTapDown: (details) {
+                      _showItemMenu(context, details.globalPosition, node);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppThemeVariables.xxs,
+                        horizontal: AppThemeVariables.xs,
+                      ),
+                      child: Material(
+                        color: isSelected
+                            ? context.colors.surfaceContainerHighest
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(
+                          AppThemeVariables.xs,
+                        ),
+                        child: InkWell(
+                          mouseCursor: SystemMouseCursors.click,
+                          hoverColor: context.colors.surfaceContainerHigh,
+                          splashColor: context.colors.primary.withValues(
+                            alpha: 0.16,
+                          ),
+                          borderRadius: BorderRadius.circular(
+                            AppThemeVariables.xs,
+                          ),
+                          onTap: () {
+                            if (isEditing) return;
 
-                if (node.isDirectory) {
-                  _treeController.toggleExpansion(node);
-                  notifier.togglePathExpanded(node.path);
-                } else {
-                  notifier.selectFile(node.path);
-                }
-              },
-              child: Container(
-                color: isSelected
-                    ? context.colors.surfaceContainerHigh
-                    : Colors.transparent,
-                padding: const EdgeInsets.symmetric(
-                  vertical: AppThemeVariables.xs,
-                  horizontal: AppThemeVariables.xs,
-                ),
-                child: Row(
-                  children: [
-                    if (node.isDirectory)
-                      Icon(
-                        entry.isExpanded
-                            ? LucideIcons.chevronDown
-                            : LucideIcons.chevronRight,
-                        size: AppThemeVariables.iconMd,
-                      )
-                    else
-                      const SizedBox(width: AppThemeVariables.md),
-
-                    const SizedBox(width: AppThemeVariables.xxs),
-
-                    Icon(
-                      node.isDirectory
-                          ? (entry.isExpanded
-                                ? LucideIcons.folderOpen
-                                : LucideIcons.folder)
-                          : LucideIcons.fileText,
-                      size: AppThemeVariables.iconMd,
-                      color: node.isDirectory
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-
-                    const SizedBox(width: AppThemeVariables.xs),
-
-                    Expanded(
-                      child: isEditing
-                          ? CallbackShortcuts(
-                              bindings: {
-                                const SingleActivator(
-                                  LogicalKeyboardKey.escape,
-                                ): () {
-                                  notifier.cancelEditing();
-                                },
-                              },
-                              child: TextField(
-                                controller: _renameController,
-                                focusNode: _renameFocusNode,
-                                style: context.bodySecondary,
-                                cursorHeight: 14,
-                                decoration: InputDecoration(
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: AppThemeVariables.xxs,
-                                    vertical: 2.0,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius:
-                                        AppThemeVariables.borderRadiusXs,
-                                    borderSide: BorderSide(
-                                      color: context.colors.primary,
-                                    ),
-                                  ),
-                                ),
-                                onSubmitted: (_) => _submitRename(node),
-                                onTapOutside: (_) => _submitRename(node),
-                              ),
-                            )
-                          : Text(
-                              node.title,
-                              style: context.body,
-                              overflow: TextOverflow.ellipsis,
+                            if (node.isDirectory) {
+                              _treeController.toggleExpansion(node);
+                              notifier.togglePathExpanded(node.path);
+                            } else {
+                              notifier.selectFile(node.path);
+                            }
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(
+                              AppThemeVariables.xxs,
                             ),
+                            child: Row(
+                              children: [
+                                if (node.isDirectory) ...[
+                                  Icon(
+                                    entry.isExpanded
+                                        ? LucideIcons.chevronDown
+                                        : LucideIcons.chevronRight,
+                                    size: AppThemeVariables.iconMd,
+                                  ),
+                                  SizedBox(width: AppThemeVariables.xxs),
+                                ] else
+                                  const SizedBox(width: AppThemeVariables.md),
+
+                                const SizedBox(width: AppThemeVariables.xxs),
+
+                                Icon(
+                                  node.isDirectory
+                                      ? (entry.isExpanded
+                                            ? LucideIcons.folderOpen
+                                            : LucideIcons.folder)
+                                      : LucideIcons.fileText,
+                                  size: AppThemeVariables.iconMd,
+                                  color: isSelected || entry.isExpanded
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                ),
+
+                                const SizedBox(width: AppThemeVariables.xs),
+
+                                Expanded(
+                                  child: isEditing
+                                      ? CallbackShortcuts(
+                                          bindings: {
+                                            const SingleActivator(
+                                              LogicalKeyboardKey.escape,
+                                            ): () {
+                                              notifier.cancelEditing();
+                                            },
+                                          },
+                                          child: TextField(
+                                            controller: _renameController,
+                                            focusNode: _renameFocusNode,
+                                            style: context.bodySecondary,
+                                            cursorHeight: 14,
+                                            decoration: InputDecoration(
+                                              isDense: true,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal:
+                                                        AppThemeVariables.xxs,
+                                                    vertical: 2.0,
+                                                  ),
+                                              border: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                      AppThemeVariables.xxs,
+                                                    ),
+                                                borderSide: BorderSide(
+                                                  color: context.colors.primary,
+                                                ),
+                                              ),
+                                            ),
+                                            onSubmitted: (_) =>
+                                                _submitRename(node),
+                                            onTapOutside: (_) =>
+                                                _submitRename(node),
+                                          ),
+                                        )
+                                      : InlineEditText(
+                                          text: node.title,
+                                          style: context.body,
+                                          trigger: InlineEditTrigger.doubleTap,
+                                          onSubmitted: (newTitle) {
+                                            notifier.renameNode(node, newTitle);
+                                          },
+                                        ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
-          ),
-        );
-      },
     );
   }
 }

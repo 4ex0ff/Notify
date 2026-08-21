@@ -9,8 +9,10 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:path/path.dart' as p;
 
 import '../../providers/notes_provider.dart';
+import '../../models/notes/note_node.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_theme_variables.dart';
+import '../common/app_quill_toolbar.dart';
 
 class NotesScreen extends ConsumerStatefulWidget {
   const NotesScreen({super.key});
@@ -20,13 +22,19 @@ class NotesScreen extends ConsumerStatefulWidget {
 }
 
 class _NotesScreenState extends ConsumerState<NotesScreen> {
+  static const _contentWidthFactor = 0.75;
+
   QuillController? _quillController;
+  late final TextEditingController _titleController;
+  late final FocusNode _titleFocusNode;
   String? _currentLoadedPath;
   Timer? _autoSaveTimer;
 
   @override
   void initState() {
     super.initState();
+    _titleController = TextEditingController();
+    _titleFocusNode = FocusNode()..addListener(_handleTitleFocusChange);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final initialPath = ref.read(notesProvider).selectedFilePath;
       if (initialPath != null) {
@@ -37,8 +45,18 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
 
   @override
   void dispose() {
+    _titleFocusNode
+      ..removeListener(_handleTitleFocusChange)
+      ..dispose();
+    _titleController.dispose();
     _resetEditor();
     super.dispose();
+  }
+
+  void _handleTitleFocusChange() {
+    if (!_titleFocusNode.hasFocus) {
+      _commitTitle();
+    }
   }
 
   void _resetEditor() {
@@ -92,7 +110,24 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
     setState(() {
       _quillController = controller;
       _currentLoadedPath = path;
+      _titleController.text = p.basenameWithoutExtension(path);
     });
+  }
+
+  void _commitTitle() {
+    final path = _currentLoadedPath;
+    final title = _titleController.text.trim();
+    if (path == null || title.isEmpty) return;
+
+    final currentTitle = p.basenameWithoutExtension(path);
+    if (title == currentTitle) return;
+
+    ref
+        .read(notesProvider.notifier)
+        .renameNode(
+          NoteNode(title: currentTitle, path: path, isDirectory: false),
+          title,
+        );
   }
 
   void _scheduleAutoSave(String path) {
@@ -156,61 +191,98 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
       return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
 
-    final fileName = p.basenameWithoutExtension(selectedFilePath);
-
-    return Column(
-      children: [
-        Container(
-          color: context.colors.surfaceContainerLowest,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppThemeVariables.md,
-            vertical: AppThemeVariables.xs,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppThemeVariables.xs,
-                  vertical: AppThemeVariables.xxs,
+    return Scaffold(
+      backgroundColor: context.colors.surface,
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(
+              top: AppThemeVariables.xl,
+              bottom: AppThemeVariables.sm,
+            ),
+            child: Center(
+              child: FractionallySizedBox(
+                widthFactor: _contentWidthFactor,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppThemeVariables.xl,
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: AppQuillToolbar(controller: _quillController!),
+                  ),
                 ),
-                child: Text(
-                  fileName,
-                  style: context.h2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const Divider(height: AppThemeVariables.md),
-              QuillSimpleToolbar(
-                controller: _quillController!,
-                config: const QuillSimpleToolbarConfig(
-                  showFontFamily: false,
-                  showFontSize: false,
-                  showSearchButton: false,
-                  showInlineCode: true,
-                  showCodeBlock: true,
-                  showSubscript: false,
-                  showSuperscript: false,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        Expanded(
-          child: Container(
-            color: context.colors.surface,
-            padding: const EdgeInsets.all(AppThemeVariables.xl),
-            child: QuillEditor.basic(
-              controller: _quillController!,
-              config: const QuillEditorConfig(
-                placeholder: 'Начните писать здесь...',
-                padding: EdgeInsets.zero,
               ),
             ),
           ),
-        ),
-      ],
+          Expanded(
+            child: Center(
+              child: FractionallySizedBox(
+                widthFactor: _contentWidthFactor,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppThemeVariables.xl,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: AppThemeVariables.md),
+                      TextField(
+                        controller: _titleController,
+                        focusNode: _titleFocusNode,
+                        style: context.h1,
+                        maxLines: 1,
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) {
+                          _commitTitle();
+                          _titleFocusNode.unfocus();
+                        },
+                        decoration: const InputDecoration(
+                          hintText: 'Название заметки',
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      const SizedBox(height: AppThemeVariables.md),
+                      Expanded(
+                        child: QuillEditor.basic(
+                          controller: _quillController!,
+                          config: QuillEditorConfig(
+                            placeholder: 'Начните писать здесь...',
+                            padding: EdgeInsets.zero,
+                            customStyles: DefaultStyles(
+                              code: DefaultTextBlockStyle(
+                                TextStyle(
+                                  color: context.colors.onSurface,
+                                  fontSize: 13,
+                                  fontFamily: 'monospace',
+                                ),
+                                HorizontalSpacing.zero,
+                                const VerticalSpacing(8, 8),
+                                const VerticalSpacing(0, 0),
+                                BoxDecoration(
+                                  color: context.colors.surfaceContainerHigh,
+                                  borderRadius: BorderRadius.circular(
+                                    AppThemeVariables.xs,
+                                  ),
+                                  border: Border.all(
+                                    color: context.colors.outlineVariant,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

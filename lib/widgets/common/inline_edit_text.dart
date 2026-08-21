@@ -99,20 +99,22 @@ class InlineEditTextState extends State<InlineEditText> {
       );
     }
 
-    return GestureDetector(
-      onTap: widget.trigger == InlineEditTrigger.singleTap
-          ? startEditing
-          : null,
-      onDoubleTap: widget.trigger == InlineEditTrigger.doubleTap
-          ? startEditing
-          : null,
-      onLongPress: widget.trigger == InlineEditTrigger.longPress
-          ? startEditing
-          : null,
-      child: Text(
-        widget.text,
-        style: widget.style,
-        overflow: TextOverflow.ellipsis,
+    return MouseRegion(
+      child: GestureDetector(
+        onTap: widget.trigger == InlineEditTrigger.singleTap
+            ? startEditing
+            : null,
+        onDoubleTap: widget.trigger == InlineEditTrigger.doubleTap
+            ? startEditing
+            : null,
+        onLongPress: widget.trigger == InlineEditTrigger.longPress
+            ? startEditing
+            : null,
+        child: Text(
+          widget.text,
+          style: widget.style,
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
     );
   }
