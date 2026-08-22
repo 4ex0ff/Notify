@@ -29,6 +29,9 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
   late final FocusNode _titleFocusNode;
   String? _currentLoadedPath;
   Timer? _autoSaveTimer;
+  StreamSubscription? _documentSubscription;
+  int _editorGeneration = 0;
+  bool _isRenamingTitle = false;
 
   @override
   void initState() {
@@ -55,13 +58,16 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
 
   void _handleTitleFocusChange() {
     if (!_titleFocusNode.hasFocus) {
-      _commitTitle();
+      unawaited(_commitTitle());
     }
   }
 
   void _resetEditor() {
+    _editorGeneration++;
     _autoSaveTimer?.cancel();
     _autoSaveTimer = null;
+    _documentSubscription?.cancel();
+    _documentSubscription = null;
     _quillController?.dispose();
     _quillController = null;
     _currentLoadedPath = null;
@@ -70,17 +76,19 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
   Future<void> _loadNote(String path) async {
     if (_currentLoadedPath == path) return;
 
+    final generation = ++_editorGeneration;
     _autoSaveTimer?.cancel();
 
     final file = File(path);
     if (!await file.exists()) {
-      if (mounted) {
+      if (mounted && generation == _editorGeneration) {
         setState(() => _resetEditor());
       }
       return;
     }
 
     final content = await file.readAsString();
+    if (!mounted || generation != _editorGeneration) return;
     Document doc;
 
     try {
@@ -94,16 +102,17 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
       doc = Document()..insert(0, '');
     }
 
-    _quillController?.dispose();
+    if (!mounted || generation != _editorGeneration) return;
 
-    if (!mounted) return;
+    _documentSubscription?.cancel();
+    _quillController?.dispose();
 
     final controller = QuillController(
       document: doc,
       selection: const TextSelection.collapsed(offset: 0),
     );
 
-    controller.document.changes.listen((_) {
+    _documentSubscription = controller.document.changes.listen((_) {
       _scheduleAutoSave(path);
     });
 
@@ -114,7 +123,9 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
     });
   }
 
-  void _commitTitle() {
+  Future<void> _commitTitle() async {
+    if (_isRenamingTitle) return;
+
     final path = _currentLoadedPath;
     final title = _titleController.text.trim();
     if (path == null || title.isEmpty) return;
@@ -122,27 +133,45 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
     final currentTitle = p.basenameWithoutExtension(path);
     if (title == currentTitle) return;
 
-    ref
-        .read(notesProvider.notifier)
-        .renameNode(
-          NoteNode(title: currentTitle, path: path, isDirectory: false),
-          title,
-        );
+    _isRenamingTitle = true;
+    try {
+      await ref
+          .read(notesProvider.notifier)
+          .renameNode(
+            NoteNode(title: currentTitle, path: path, isDirectory: false),
+            title,
+          );
+    } finally {
+      _isRenamingTitle = false;
+    }
   }
 
   void _scheduleAutoSave(String path) {
     _autoSaveTimer?.cancel();
-    _autoSaveTimer = Timer(const Duration(milliseconds: 500), () async {
-      if (_quillController == null || _currentLoadedPath != path) return;
+    final generation = _editorGeneration;
+    final controller = _quillController;
+    if (controller == null) return;
 
-      final deltaJson = jsonEncode(
-        _quillController!.document.toDelta().toJson(),
-      );
+    _autoSaveTimer = Timer(const Duration(milliseconds: 500), () async {
+      if (!mounted ||
+          generation != _editorGeneration ||
+          _currentLoadedPath != path ||
+          _quillController != controller) {
+        return;
+      }
+
+      final deltaJson = jsonEncode(controller.document.toDelta().toJson());
       final file = File(path);
 
-      if (await file.exists()) {
-        await file.writeAsString(deltaJson);
+      if (!await file.exists()) return;
+      if (!mounted ||
+          generation != _editorGeneration ||
+          _currentLoadedPath != path ||
+          _quillController != controller) {
+        return;
       }
+
+      await file.writeAsString(deltaJson);
     });
   }
 
@@ -234,7 +263,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                         maxLines: 1,
                         textInputAction: TextInputAction.done,
                         onSubmitted: (_) {
-                          _commitTitle();
+                          unawaited(_commitTitle());
                           _titleFocusNode.unfocus();
                         },
                         decoration: const InputDecoration(

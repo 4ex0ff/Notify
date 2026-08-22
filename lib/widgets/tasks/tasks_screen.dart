@@ -27,7 +27,17 @@ class TasksScreen extends ConsumerStatefulWidget {
 class _TasksScreenState extends ConsumerState<TasksScreen> {
   // ignore: deprecated_member_use
   final BoardViewController _boardController = BoardViewController();
+  final GlobalKey<InlineEditTextState> _boardTitleKey =
+      GlobalKey<InlineEditTextState>();
+  final Map<String, GlobalKey<InlineEditTextState>> _columnEditKeys = {};
   String? _hoveredTaskId;
+
+  GlobalKey<InlineEditTextState> _getColumnEditKey(String columnId) {
+    return _columnEditKeys.putIfAbsent(
+      columnId,
+      () => GlobalKey<InlineEditTextState>(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,68 +65,72 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
     }
 
     // Подготовка данных доски для передачи в boardbiew
-    final List<BoardList> boardLists = selectedBoard.columns.map((column) {
-      final boardItems = column.tasks.map((task) {
-        return BoardItem(
-          onStartDragItem: (listIndex, itemIndex, state) {},
-          onDropItem:
-              (listIndex, itemIndex, oldListIndex, oldItemIndex, state) {
-                if (listIndex == null ||
-                    itemIndex == null ||
-                    oldListIndex == null ||
-                    oldItemIndex == null) {
-                  return;
-                }
+    final List<BoardList> boardLists = selectedBoard.columns
+        .asMap()
+        .entries
+        .map((entry) {
+          final columnIndex = entry.key;
+          final column = entry.value;
+          final boardItems = column.tasks.map((task) {
+            return BoardItem(
+              onStartDragItem: (listIndex, itemIndex, state) {},
+              onDropItem:
+                  (listIndex, itemIndex, oldListIndex, oldItemIndex, state) {
+                    if (listIndex == null ||
+                        itemIndex == null ||
+                        oldListIndex == null ||
+                        oldItemIndex == null) {
+                      return;
+                    }
 
-                final fromColumn = selectedBoard.columns[oldListIndex];
-                final toColumn = selectedBoard.columns[listIndex];
+                    final fromColumn = selectedBoard.columns[oldListIndex];
+                    final toColumn = selectedBoard.columns[listIndex];
 
-                ref
-                    .read(tasksProvider.notifier)
-                    .moveTask(
-                      fromColumnId: fromColumn.id,
-                      toColumnId: toColumn.id,
-                      fromIndex: oldItemIndex,
-                      toIndex: itemIndex,
-                    );
-              },
-          onTapItem: (listIndex, itemIndex, state) {},
-          item: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppThemeVariables.xxs,
-            ),
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                vertical: AppThemeVariables.xxs,
-                horizontal: AppThemeVariables.xs,
+                    ref
+                        .read(tasksProvider.notifier)
+                        .moveTask(
+                          fromColumnId: fromColumn.id,
+                          toColumnId: toColumn.id,
+                          fromIndex: oldItemIndex,
+                          toIndex: itemIndex,
+                        );
+                  },
+              onTapItem: (listIndex, itemIndex, state) {},
+              item: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppThemeVariables.xxs,
+                ),
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    vertical: AppThemeVariables.xxs,
+                    horizontal: AppThemeVariables.xs,
+                  ),
+                  color: context.colors.surfaceContainerHigh,
+                  child: _buildTaskCard(context, column.id, task),
+                ),
               ),
-              color: context.colors.surfaceContainerHigh,
-              child: _buildTaskCard(context, column.id, task),
-            ),
-          ),
-        );
-      }).toList();
+            );
+          }).toList();
 
-      return BoardList(
-        onDropList: (listIndex, oldListIndex) {
-          if (listIndex == null ||
-              oldListIndex == null ||
-              listIndex == oldListIndex) {
-            return;
-          }
-
-          ref
-              .read(tasksProvider.notifier)
-              .moveColumn(fromIndex: oldListIndex, toIndex: listIndex);
-        },
-        header: [
-          Expanded(child: _buildColumnHeader(context, column.id, column.title)),
-        ],
-        items: boardItems,
-        footer: _buildColumnFooter(context, column.id),
-        backgroundColor: Colors.transparent,
-      );
-    }).toList();
+          return BoardList(
+            draggable: false,
+            header: [
+              Expanded(
+                child: _buildColumnHeader(
+                  context,
+                  column.id,
+                  column.title,
+                  columnIndex,
+                  selectedBoard.columns.length,
+                ),
+              ),
+            ],
+            items: boardItems,
+            footer: _buildColumnFooter(context, column.id),
+            backgroundColor: Colors.transparent,
+          );
+        })
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,6 +147,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
             children: [
               Expanded(
                 child: InlineEditText(
+                  key: _boardTitleKey,
                   text: selectedBoard.title,
                   style: context.h1,
                   trigger: InlineEditTrigger.doubleTap,
@@ -165,11 +180,6 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                           title: 'Добавить столбец',
                           icon: LucideIcons.plus,
                         ),
-                        ContextMenuItem(
-                          value: 'clearCompleted',
-                          title: 'Очистить выполненные',
-                          icon: LucideIcons.checkCheck,
-                        ),
                         ContextMenuDivider(),
                         ContextMenuItem(
                           value: 'deleteBoard',
@@ -181,7 +191,9 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                     ).then((action) {
                       if (!context.mounted) return;
 
-                      if (action == 'addColumn') {
+                      if (action == 'rename') {
+                        _boardTitleKey.currentState?.startEditing();
+                      } else if (action == 'addColumn') {
                         ref
                             .read(tasksProvider.notifier)
                             .createColumn('Новый столбец');
@@ -256,6 +268,8 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
     BuildContext context,
     String columnId,
     String title,
+    int columnIndex,
+    int columnCount,
   ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppThemeVariables.xxs),
@@ -275,6 +289,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
             SizedBox(width: AppThemeVariables.xxs),
             Expanded(
               child: InlineEditText(
+                key: _getColumnEditKey(columnId),
                 text: title,
                 style: context.h3,
                 trigger: InlineEditTrigger.doubleTap,
@@ -319,8 +334,26 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                   showAppContextMenu<String>(
                     context: context,
                     position: details.globalPosition,
-                    items: const [
-                      ContextMenuItem(
+                    items: [
+                      if (columnIndex > 0)
+                        const ContextMenuItem(
+                          value: 'moveLeft',
+                          title: 'Сдвинуть влево',
+                          icon: LucideIcons.arrowLeft,
+                        ),
+                      if (columnIndex < columnCount - 1)
+                        const ContextMenuItem(
+                          value: 'moveRight',
+                          title: 'Сдвинуть вправо',
+                          icon: LucideIcons.arrowRight,
+                        ),
+                      const ContextMenuDivider(),
+                      const ContextMenuItem(
+                        value: 'rename',
+                        title: 'Переименовать',
+                        icon: LucideIcons.pencil,
+                      ),
+                      const ContextMenuItem(
                         value: 'delete',
                         title: 'Удалить',
                         icon: LucideIcons.trash2,
@@ -330,7 +363,23 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                   ).then((action) {
                     if (!context.mounted) return;
 
-                    if (action == 'delete') {
+                    if (action == 'moveLeft') {
+                      ref
+                          .read(tasksProvider.notifier)
+                          .moveColumn(
+                            fromIndex: columnIndex,
+                            toIndex: columnIndex - 1,
+                          );
+                    } else if (action == 'moveRight') {
+                      ref
+                          .read(tasksProvider.notifier)
+                          .moveColumn(
+                            fromIndex: columnIndex,
+                            toIndex: columnIndex + 1,
+                          );
+                    } else if (action == 'rename') {
+                      _getColumnEditKey(columnId).currentState?.startEditing();
+                    } else if (action == 'delete') {
                       showConfirmDialog(
                         context,
                         title: 'Удалить столбец "$title"?',
@@ -509,6 +558,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                 description: newDescription,
                 priority: newPriority,
                 dueDate: newDueDate,
+                clearDueDate: newDueDate == null,
               ),
             );
       },

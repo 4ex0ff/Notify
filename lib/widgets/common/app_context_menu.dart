@@ -57,6 +57,7 @@ class _RoundedPopupMenuItemState<T> extends State<_RoundedPopupMenuItem<T>> {
         borderRadius: widget.borderRadius,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
+          mouseCursor: SystemMouseCursors.click,
           borderRadius: widget.borderRadius,
           hoverColor: context.colors.surfaceContainerHighest,
           onTap: () => Navigator.pop<T>(context, widget.value),

@@ -73,13 +73,19 @@ class _SidebarState extends ConsumerState<Sidebar> {
         ),
         destinations: const [
           NavigationRailDestination(
-            icon: Icon(LucideIcons.fileText, size: AppThemeVariables.iconLg),
+            icon: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Icon(LucideIcons.fileText, size: AppThemeVariables.iconLg),
+            ),
             label: Text(''),
           ),
           NavigationRailDestination(
-            icon: Icon(
-              LucideIcons.squareKanban,
-              size: AppThemeVariables.iconLg,
+            icon: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Icon(
+                LucideIcons.clipboardList,
+                size: AppThemeVariables.iconLg,
+              ),
             ),
             label: Text(''),
           ),
@@ -334,7 +340,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
                 size: AppThemeVariables.iconSm,
               ),
               style: OutlinedButton.styleFrom(
-                enabledMouseCursor: SystemMouseCursors.click,
+                disabledMouseCursor: SystemMouseCursors.forbidden,
                 padding: const EdgeInsets.symmetric(
                   vertical: AppThemeVariables.xs,
                   horizontal: AppThemeVariables.xxs,
@@ -356,7 +362,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
                 size: AppThemeVariables.iconSm,
               ),
               style: OutlinedButton.styleFrom(
-                enabledMouseCursor: SystemMouseCursors.click,
+                disabledMouseCursor: SystemMouseCursors.forbidden,
                 padding: const EdgeInsets.symmetric(
                   vertical: AppThemeVariables.xs,
                   horizontal: AppThemeVariables.xxs,

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -51,6 +52,13 @@ class TasksState {
 
 class TasksNotifier extends Notifier<TasksState> {
   String _tasksDirectoryPath = '';
+  Future<void> _mutationQueue = Future<void>.value();
+
+  Future<void> _enqueueMutation(Future<void> Function() mutation) {
+    final next = _mutationQueue.then((_) => mutation());
+    _mutationQueue = next.catchError((_) {});
+    return next;
+  }
 
   @override
   TasksState build() {
@@ -87,7 +95,16 @@ class TasksNotifier extends Notifier<TasksState> {
           final content = await entity.readAsString();
           final json = jsonDecode(content) as Map<String, dynamic>;
           loadedBoards.add(Board.fromJson(json));
-        } catch (_) {}
+        } catch (error, stackTrace) {
+          FlutterError.reportError(
+            FlutterErrorDetails(
+              exception: error,
+              stack: stackTrace,
+              library: 'tasks_provider',
+              context: ErrorDescription('loading ${entity.path}'),
+            ),
+          );
+        }
       }
     }
 
@@ -120,7 +137,7 @@ class TasksNotifier extends Notifier<TasksState> {
   }
 
   // Обновление текущей доски
-  Future<void> _updateBoard(Board updatedBoard) async {
+  Future<void> _applyBoard(Board updatedBoard) async {
     await _saveBoard(updatedBoard);
 
     final updatedBoards = state.boards.map((b) {
@@ -138,181 +155,178 @@ class TasksNotifier extends Notifier<TasksState> {
 
   // Создание доски
   Future<void> createBoard(String title) async {
-    final id = DateTime.now().microsecondsSinceEpoch.toString();
+    await _enqueueMutation(() async {
+      final id = DateTime.now().microsecondsSinceEpoch.toString();
+      final newBoard = Board(
+        id: id,
+        title: title.trim().isEmpty ? 'Новая доска' : title.trim(),
+        columns: [
+          TaskColumn(id: '${id}_col_1', title: 'Запланировано', order: 0),
+          TaskColumn(id: '${id}_col_2', title: 'В работе', order: 1),
+          TaskColumn(id: '${id}_col_3', title: 'Отложено', order: 2),
+          TaskColumn(id: '${id}_col_4', title: 'Выполнено', order: 3),
+        ],
+        createdAt: DateTime.now(),
+      );
 
-    final newBoard = Board(
-      id: id,
-      title: title.trim().isEmpty ? 'Новая доска' : title.trim(),
-      columns: [
-        TaskColumn(id: '${id}_col_1', title: 'Запланировано', order: 0),
-        TaskColumn(id: '${id}_col_2', title: 'В работе', order: 1),
-        TaskColumn(id: '${id}_col_3', title: 'Отложено', order: 2),
-        TaskColumn(id: '${id}_col_4', title: 'Выполнено', order: 3),
-      ],
-      createdAt: DateTime.now(),
-    );
-
-    await _saveBoard(newBoard);
-
-    final updatedBoards = List<Board>.from(state.boards)..add(newBoard);
-    state = state.copyWith(boards: updatedBoards, selectedBoardId: newBoard.id);
+      await _saveBoard(newBoard);
+      final updatedBoards = List<Board>.from(state.boards)..add(newBoard);
+      state = state.copyWith(
+        boards: updatedBoards,
+        selectedBoardId: newBoard.id,
+      );
+    });
   }
 
   // Переименование доски
   Future<void> renameBoard(String boardId, String newTitle) async {
-    // Позиция нужной доски в списке всех досок
-    final boardIndex = state.boards.indexWhere((b) => b.id == boardId);
-    if (boardIndex == -1) return;
+    await _enqueueMutation(() async {
+      final boardIndex = state.boards.indexWhere((b) => b.id == boardId);
+      if (boardIndex == -1) return;
 
-    final updatedBoard = state.boards[boardIndex].copyWith(title: newTitle);
-    await _saveBoard(updatedBoard);
-
-    final updatedBoards = List<Board>.from(state.boards);
-    updatedBoards[boardIndex] = updatedBoard;
-
-    state = state.copyWith(boards: updatedBoards);
+      final updatedBoard = state.boards[boardIndex].copyWith(title: newTitle);
+      await _saveBoard(updatedBoard);
+      final updatedBoards = List<Board>.from(state.boards);
+      updatedBoards[boardIndex] = updatedBoard;
+      state = state.copyWith(boards: updatedBoards);
+    });
   }
 
   // Удаление доски
   Future<void> deleteBoard(String boardId) async {
-    final file = File(p.join(_tasksDirectoryPath, '$boardId.json'));
-    if (await file.exists()) {
-      await file.delete();
-    }
+    await _enqueueMutation(() async {
+      final file = File(p.join(_tasksDirectoryPath, '$boardId.json'));
+      if (await file.exists()) {
+        await file.delete();
+      }
 
-    final updatedBoards = state.boards.where((b) => b.id != boardId).toList();
-    String? nextSelected = state.selectedBoardId;
+      final updatedBoards = state.boards.where((b) => b.id != boardId).toList();
+      String? nextSelected = state.selectedBoardId;
+      if (state.selectedBoardId == boardId) {
+        nextSelected = updatedBoards.isNotEmpty ? updatedBoards.first.id : null;
+      }
 
-    if (state.selectedBoardId == boardId) {
-      nextSelected = updatedBoards.isNotEmpty ? updatedBoards.first.id : null;
-    }
-
-    state = state.copyWith(
-      boards: updatedBoards,
-      selectedBoardId: nextSelected,
-      clearSelectedBoard: nextSelected == null,
-    );
+      state = state.copyWith(
+        boards: updatedBoards,
+        selectedBoardId: nextSelected,
+        clearSelectedBoard: nextSelected == null,
+      );
+    });
   }
 
   // --- Управление столбцами ---
   // Создание столбца
   Future<void> createColumn(String title) async {
-    final board = state.selectedBoard;
-    if (board == null) return;
+    await _enqueueMutation(() async {
+      final board = state.selectedBoard;
+      if (board == null) return;
 
-    final columnId = DateTime.now().microsecondsSinceEpoch.toString();
-    final newColumn = TaskColumn(
-      id: columnId,
-      title: title.trim().isEmpty ? 'Новый столбец' : title.trim(),
-      order: board.columns.length,
-    );
-
-    final updatedColumns = List<TaskColumn>.from(board.columns)..add(newColumn);
-    await _updateBoard(board.copyWith(columns: updatedColumns));
+      final columnId = DateTime.now().microsecondsSinceEpoch.toString();
+      final newColumn = TaskColumn(
+        id: columnId,
+        title: title.trim().isEmpty ? 'Новый столбец' : title.trim(),
+        order: board.columns.length,
+      );
+      final updatedColumns = List<TaskColumn>.from(board.columns)
+        ..add(newColumn);
+      await _applyBoard(board.copyWith(columns: updatedColumns));
+    });
   }
 
   // Переименование столбца
   Future<void> renameColumn(String columnId, String newTitle) async {
-    final board = state.selectedBoard;
-    if (board == null) return;
+    await _enqueueMutation(() async {
+      final board = state.selectedBoard;
+      if (board == null) return;
 
-    final updatedColumns = board.columns.map((col) {
-      if (col.id == columnId) {
-        return col.copyWith(title: newTitle);
-      }
-      return col;
-    }).toList();
-
-    await _updateBoard(board.copyWith(columns: updatedColumns));
+      final updatedColumns = board.columns.map((col) {
+        return col.id == columnId ? col.copyWith(title: newTitle) : col;
+      }).toList();
+      await _applyBoard(board.copyWith(columns: updatedColumns));
+    });
   }
 
   // Удаление столбца
   Future<void> deleteColumn(String columnId) async {
-    final board = state.selectedBoard;
-    if (board == null) return;
+    await _enqueueMutation(() async {
+      final board = state.selectedBoard;
+      if (board == null) return;
 
-    final updatedColumns = board.columns
-        .where((col) => col.id != columnId)
-        .toList();
-
-    await _updateBoard(board.copyWith(columns: updatedColumns));
+      final updatedColumns = board.columns
+          .where((col) => col.id != columnId)
+          .toList();
+      await _applyBoard(board.copyWith(columns: updatedColumns));
+    });
   }
 
   Future<void> moveColumn({
     required int fromIndex,
     required int toIndex,
   }) async {
-    final currentBoard = state.selectedBoard;
-    if (currentBoard == null) return;
+    await _enqueueMutation(() async {
+      final currentBoard = state.selectedBoard;
+      if (currentBoard == null) return;
 
-    final updatedColumns = List<TaskColumn>.from(currentBoard.columns);
-    final movedColumn = updatedColumns.removeAt(fromIndex);
-    updatedColumns.insert(toIndex, movedColumn);
-
-    final updatedBoard = currentBoard.copyWith(columns: updatedColumns);
-
-    // Обновляем состояние и сохраняем на диск / в конфиг доски
-    _updateBoard(updatedBoard);
+      final updatedColumns = List<TaskColumn>.from(currentBoard.columns);
+      final movedColumn = updatedColumns.removeAt(fromIndex);
+      updatedColumns.insert(toIndex, movedColumn);
+      await _applyBoard(currentBoard.copyWith(columns: updatedColumns));
+    });
   }
 
   // --- Управление задачами ---
   // Создание задачи
   Future<void> createTask(String columnId, String title) async {
-    final board = state.selectedBoard;
-    if (board == null) return;
+    await _enqueueMutation(() async {
+      final board = state.selectedBoard;
+      if (board == null) return;
 
-    final taskId = DateTime.now().microsecondsSinceEpoch.toString();
-
-    final updatedColumns = board.columns.map((col) {
-      if (col.id == columnId) {
+      final taskId = DateTime.now().microsecondsSinceEpoch.toString();
+      final updatedColumns = board.columns.map((col) {
+        if (col.id != columnId) return col;
         final newTask = Task(
           id: taskId,
           title: title.trim(),
           order: col.tasks.length,
         );
-        final updatedTasks = List<Task>.from(col.tasks)..add(newTask);
-        return col.copyWith(tasks: updatedTasks);
-      }
-      return col;
-    }).toList();
-
-    await _updateBoard(board.copyWith(columns: updatedColumns));
+        return col.copyWith(tasks: [...col.tasks, newTask]);
+      }).toList();
+      await _applyBoard(board.copyWith(columns: updatedColumns));
+    });
   }
 
   // Обновление задачи
   Future<void> updateTask(String columnId, Task updatedTask) async {
-    final board = state.selectedBoard;
-    if (board == null) return;
+    await _enqueueMutation(() async {
+      final board = state.selectedBoard;
+      if (board == null) return;
 
-    final updatedColumns = board.columns.map((col) {
-      if (col.id == columnId) {
+      final updatedColumns = board.columns.map((col) {
+        if (col.id != columnId) return col;
         final updatedTasks = col.tasks.map((task) {
           return task.id == updatedTask.id ? updatedTask : task;
         }).toList();
         return col.copyWith(tasks: updatedTasks);
-      }
-      return col;
-    }).toList();
-
-    await _updateBoard(board.copyWith(columns: updatedColumns));
+      }).toList();
+      await _applyBoard(board.copyWith(columns: updatedColumns));
+    });
   }
 
   // Удаление задачи
   Future<void> deleteTask(String columnId, String taskId) async {
-    final board = state.selectedBoard;
-    if (board == null) return;
+    await _enqueueMutation(() async {
+      final board = state.selectedBoard;
+      if (board == null) return;
 
-    final updatedColumns = board.columns.map((col) {
-      if (col.id == columnId) {
+      final updatedColumns = board.columns.map((col) {
+        if (col.id != columnId) return col;
         final updatedTasks = col.tasks
             .where((task) => task.id != taskId)
             .toList();
         return col.copyWith(tasks: updatedTasks);
-      }
-      return col;
-    }).toList();
-
-    await _updateBoard(board.copyWith(columns: updatedColumns));
+      }).toList();
+      await _applyBoard(board.copyWith(columns: updatedColumns));
+    });
   }
 
   // Перемещение задачи (drag-and-drop)
@@ -322,35 +336,34 @@ class TasksNotifier extends Notifier<TasksState> {
     required int fromIndex,
     required int toIndex,
   }) async {
-    final board = state.selectedBoard;
-    if (board == null) return;
+    await _enqueueMutation(() async {
+      final board = state.selectedBoard;
+      if (board == null) return;
 
-    final fromColumn = board.columns.firstWhere(
-      (col) => col.id == fromColumnId,
-    );
-    final taskToMove = fromColumn.tasks[fromIndex];
+      final fromColumn = board.columns.firstWhere(
+        (col) => col.id == fromColumnId,
+      );
+      final taskToMove = fromColumn.tasks[fromIndex];
 
-    final updatedColumns = board.columns.map((col) {
-      // Удаление задачи из исходного столбца
-      if (col.id == fromColumnId && fromColumnId != toColumnId) {
-        final tasks = List<Task>.from(col.tasks)..removeAt(fromIndex);
-        return col.copyWith(tasks: tasks);
-      }
-
-      // Вставка задачи в целевой столбец
-      if (col.id == toColumnId) {
-        final tasks = List<Task>.from(col.tasks);
-        if (fromColumnId == toColumnId) {
-          tasks.removeAt(fromIndex);
+      final updatedColumns = board.columns.map((col) {
+        if (col.id == fromColumnId && fromColumnId != toColumnId) {
+          final tasks = List<Task>.from(col.tasks)..removeAt(fromIndex);
+          return col.copyWith(tasks: tasks);
         }
-        tasks.insert(toIndex, taskToMove);
-        return col.copyWith(tasks: tasks);
-      }
 
-      return col;
-    }).toList();
+        if (col.id == toColumnId) {
+          final tasks = List<Task>.from(col.tasks);
+          if (fromColumnId == toColumnId) {
+            tasks.removeAt(fromIndex);
+          }
+          tasks.insert(toIndex, taskToMove);
+          return col.copyWith(tasks: tasks);
+        }
 
-    await _updateBoard(board.copyWith(columns: updatedColumns));
+        return col;
+      }).toList();
+      await _applyBoard(board.copyWith(columns: updatedColumns));
+    });
   }
 }
 

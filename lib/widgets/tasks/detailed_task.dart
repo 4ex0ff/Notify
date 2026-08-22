@@ -123,9 +123,8 @@ class _DetailedTaskDialogState extends State<DetailedTaskDialog> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2035),
     );
-    if (picked != null) {
-      setState(() => _selectedDueDate = picked);
-    }
+    if (!mounted || picked == null) return;
+    setState(() => _selectedDueDate = picked);
   }
 
   @override
@@ -144,23 +143,20 @@ class _DetailedTaskDialogState extends State<DetailedTaskDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(LucideIcons.x),
-                    iconSize: AppThemeVariables.iconMd,
-                    tooltip: 'Закрыть',
-                  ),
-                ],
-              ),
-              Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  IconButton(
+                    mouseCursor: SystemMouseCursors.click,
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(LucideIcons.arrowLeft),
+                    iconSize: AppThemeVariables.iconMd,
+                    tooltip: 'Назад',
+                  ),
+                  const SizedBox(width: AppThemeVariables.md),
                   Expanded(
                     child: TextField(
                       controller: _titleController,
-                      style: context.h2,
+                      style: context.h1,
                       decoration: const InputDecoration(
                         hintText: 'Название задачи',
                         border: InputBorder.none,

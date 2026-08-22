@@ -40,6 +40,7 @@ dependencies:
   watcher: ^1.2.1
   flutter_fancy_tree_view: ^1.6.0
   boardview: ^1.0.0
+  kanban_board: ^1.0.0+2
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

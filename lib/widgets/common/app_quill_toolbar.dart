@@ -38,10 +38,20 @@ class AppQuillToolbar extends StatelessWidget {
         visualDensity: VisualDensity.compact,
         style: ButtonStyle(
           elevation: const WidgetStatePropertyAll(0),
+          mouseCursor: const WidgetStatePropertyAll(SystemMouseCursors.click),
           backgroundColor: WidgetStatePropertyAll(
             context.colors.surfaceContainerHighest,
           ),
           foregroundColor: WidgetStatePropertyAll(context.colors.primary),
+          overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
+            if (states.contains(WidgetState.hovered)) {
+              return context.colors.primary.withValues(alpha: 0.12);
+            }
+            if (states.contains(WidgetState.pressed)) {
+              return context.colors.primary.withValues(alpha: 0.2);
+            }
+            return null;
+          }),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppThemeVariables.xs),
@@ -58,10 +68,20 @@ class AppQuillToolbar extends StatelessWidget {
         visualDensity: VisualDensity.compact,
         style: ButtonStyle(
           elevation: const WidgetStatePropertyAll(0),
+          mouseCursor: const WidgetStatePropertyAll(SystemMouseCursors.click),
           backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
           foregroundColor: WidgetStatePropertyAll(
             context.colors.onSurfaceVariant,
           ),
+          overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
+            if (states.contains(WidgetState.hovered)) {
+              return context.colors.surfaceContainerHighest;
+            }
+            if (states.contains(WidgetState.pressed)) {
+              return context.colors.primary.withValues(alpha: 0.16);
+            }
+            return null;
+          }),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppThemeVariables.xs),
@@ -81,146 +101,158 @@ class AppQuillToolbar extends StatelessWidget {
         borderRadius: borderRadius,
         border: border ?? Border.all(color: context.colors.outlineVariant),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        spacing: isCompact ? AppThemeVariables.xxs : AppThemeVariables.sm,
-        children: [
-          if (!isCompact) SizedBox(width: AppThemeVariables.xxs),
-          // History (Undo / Redo)
-          QuillToolbarHistoryButton(
-            controller: controller,
-            isUndo: true,
-            options: QuillToolbarHistoryButtonOptions(
-              iconData: LucideIcons.undo,
-              iconSize: iconSize,
-              iconTheme: customIconTheme,
-            ),
-          ),
-          QuillToolbarHistoryButton(
-            controller: controller,
-            isUndo: false,
-            options: QuillToolbarHistoryButtonOptions(
-              iconData: LucideIcons.redo,
-              iconSize: iconSize,
-              iconTheme: customIconTheme,
-            ),
-          ),
-          _buildDivider(context),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                spacing: isCompact
+                    ? AppThemeVariables.xxs
+                    : AppThemeVariables.sm,
+                children: [
+                  if (!isCompact) SizedBox(width: AppThemeVariables.xxs),
+                  // History (Undo / Redo)
+                  QuillToolbarHistoryButton(
+                    controller: controller,
+                    isUndo: true,
+                    options: QuillToolbarHistoryButtonOptions(
+                      iconData: LucideIcons.undo,
+                      iconSize: iconSize,
+                      iconTheme: customIconTheme,
+                    ),
+                  ),
+                  QuillToolbarHistoryButton(
+                    controller: controller,
+                    isUndo: false,
+                    options: QuillToolbarHistoryButtonOptions(
+                      iconData: LucideIcons.redo,
+                      iconSize: iconSize,
+                      iconTheme: customIconTheme,
+                    ),
+                  ),
+                  _buildDivider(context),
 
-          // Text Styles
-          QuillToolbarToggleStyleButton(
-            controller: controller,
-            attribute: Attribute.bold,
-            options: QuillToolbarToggleStyleButtonOptions(
-              iconData: LucideIcons.bold,
-              iconSize: iconSize,
-              iconTheme: customIconTheme,
-            ),
-          ),
-          QuillToolbarToggleStyleButton(
-            controller: controller,
-            attribute: Attribute.italic,
-            options: QuillToolbarToggleStyleButtonOptions(
-              iconData: LucideIcons.italic,
-              iconSize: iconSize,
-              iconTheme: customIconTheme,
-            ),
-          ),
-          QuillToolbarToggleStyleButton(
-            controller: controller,
-            attribute: Attribute.underline,
-            options: QuillToolbarToggleStyleButtonOptions(
-              iconData: LucideIcons.underline,
-              iconSize: iconSize,
-              iconTheme: customIconTheme,
-            ),
-          ),
-          QuillToolbarToggleStyleButton(
-            controller: controller,
-            attribute: Attribute.strikeThrough,
-            options: QuillToolbarToggleStyleButtonOptions(
-              iconData: LucideIcons.strikethrough,
-              iconSize: iconSize,
-              iconTheme: customIconTheme,
-            ),
-          ),
+                  // Text Styles
+                  QuillToolbarToggleStyleButton(
+                    controller: controller,
+                    attribute: Attribute.bold,
+                    options: QuillToolbarToggleStyleButtonOptions(
+                      iconData: LucideIcons.bold,
+                      iconSize: iconSize,
+                      iconTheme: customIconTheme,
+                    ),
+                  ),
+                  QuillToolbarToggleStyleButton(
+                    controller: controller,
+                    attribute: Attribute.italic,
+                    options: QuillToolbarToggleStyleButtonOptions(
+                      iconData: LucideIcons.italic,
+                      iconSize: iconSize,
+                      iconTheme: customIconTheme,
+                    ),
+                  ),
+                  QuillToolbarToggleStyleButton(
+                    controller: controller,
+                    attribute: Attribute.underline,
+                    options: QuillToolbarToggleStyleButtonOptions(
+                      iconData: LucideIcons.underline,
+                      iconSize: iconSize,
+                      iconTheme: customIconTheme,
+                    ),
+                  ),
+                  QuillToolbarToggleStyleButton(
+                    controller: controller,
+                    attribute: Attribute.strikeThrough,
+                    options: QuillToolbarToggleStyleButtonOptions(
+                      iconData: LucideIcons.strikethrough,
+                      iconSize: iconSize,
+                      iconTheme: customIconTheme,
+                    ),
+                  ),
 
-          // Headings (H1, H2, H3)
-          _buildDivider(context),
-          _HeaderStyleButton(
-            controller: controller,
-            attribute: Attribute.h1,
-            label: 'H1',
-            iconTheme: customIconTheme,
-          ),
-          _HeaderStyleButton(
-            controller: controller,
-            attribute: Attribute.h2,
-            label: 'H2',
-            iconTheme: customIconTheme,
-          ),
-          _HeaderStyleButton(
-            controller: controller,
-            attribute: Attribute.h3,
-            label: 'H3',
-            iconTheme: customIconTheme,
-          ),
+                  // Headings (H1, H2, H3)
+                  _buildDivider(context),
+                  _HeaderStyleButton(
+                    controller: controller,
+                    attribute: Attribute.h1,
+                    label: 'H1',
+                    iconTheme: customIconTheme,
+                  ),
+                  _HeaderStyleButton(
+                    controller: controller,
+                    attribute: Attribute.h2,
+                    label: 'H2',
+                    iconTheme: customIconTheme,
+                  ),
+                  _HeaderStyleButton(
+                    controller: controller,
+                    attribute: Attribute.h3,
+                    label: 'H3',
+                    iconTheme: customIconTheme,
+                  ),
 
-          _buildDivider(context),
+                  _buildDivider(context),
 
-          // Lists
-          QuillToolbarToggleStyleButton(
-            controller: controller,
-            attribute: Attribute.ul,
-            options: QuillToolbarToggleStyleButtonOptions(
-              iconData: LucideIcons.list,
-              iconSize: iconSize,
-              iconTheme: customIconTheme,
-            ),
-          ),
-          QuillToolbarToggleStyleButton(
-            controller: controller,
-            attribute: Attribute.ol,
-            options: QuillToolbarToggleStyleButtonOptions(
-              iconData: LucideIcons.listOrdered,
-              iconSize: iconSize,
-              iconTheme: customIconTheme,
-            ),
-          ),
-          QuillToolbarToggleStyleButton(
-            controller: controller,
-            attribute: Attribute.unchecked,
-            options: QuillToolbarToggleStyleButtonOptions(
-              iconData: LucideIcons.listTodo,
-              iconSize: iconSize,
-              iconTheme: customIconTheme,
-            ),
-          ),
+                  // Lists
+                  QuillToolbarToggleStyleButton(
+                    controller: controller,
+                    attribute: Attribute.ul,
+                    options: QuillToolbarToggleStyleButtonOptions(
+                      iconData: LucideIcons.list,
+                      iconSize: iconSize,
+                      iconTheme: customIconTheme,
+                    ),
+                  ),
+                  QuillToolbarToggleStyleButton(
+                    controller: controller,
+                    attribute: Attribute.ol,
+                    options: QuillToolbarToggleStyleButtonOptions(
+                      iconData: LucideIcons.listOrdered,
+                      iconSize: iconSize,
+                      iconTheme: customIconTheme,
+                    ),
+                  ),
+                  QuillToolbarToggleStyleButton(
+                    controller: controller,
+                    attribute: Attribute.unchecked,
+                    options: QuillToolbarToggleStyleButtonOptions(
+                      iconData: LucideIcons.listTodo,
+                      iconSize: iconSize,
+                      iconTheme: customIconTheme,
+                    ),
+                  ),
 
-          // Code & Quote
-          if (!isCompact) ...[
-            _buildDivider(context),
-            QuillToolbarToggleStyleButton(
-              controller: controller,
-              attribute: Attribute.blockQuote,
-              options: QuillToolbarToggleStyleButtonOptions(
-                iconData: LucideIcons.quote,
-                iconSize: iconSize,
-                iconTheme: customIconTheme,
+                  // Code & Quote
+                  if (!isCompact) ...[
+                    _buildDivider(context),
+                    QuillToolbarToggleStyleButton(
+                      controller: controller,
+                      attribute: Attribute.blockQuote,
+                      options: QuillToolbarToggleStyleButtonOptions(
+                        iconData: LucideIcons.quote,
+                        iconSize: iconSize,
+                        iconTheme: customIconTheme,
+                      ),
+                    ),
+                    QuillToolbarToggleStyleButton(
+                      controller: controller,
+                      attribute: Attribute.codeBlock,
+                      options: QuillToolbarToggleStyleButtonOptions(
+                        iconData: LucideIcons.code,
+                        iconSize: iconSize,
+                        iconTheme: customIconTheme,
+                      ),
+                    ),
+                    SizedBox(width: AppThemeVariables.xxs),
+                  ],
+                ],
               ),
             ),
-            QuillToolbarToggleStyleButton(
-              controller: controller,
-              attribute: Attribute.codeBlock,
-              options: QuillToolbarToggleStyleButtonOptions(
-                iconData: LucideIcons.code,
-                iconSize: iconSize,
-                iconTheme: customIconTheme,
-              ),
-            ),
-            SizedBox(width: AppThemeVariables.xxs),
-          ],
-        ],
+          );
+        },
       ),
     );
   }
@@ -267,6 +299,16 @@ class _HeaderStyleButtonState extends State<_HeaderStyleButton> {
 
   void _refresh() {
     if (mounted) setState(() {});
+  }
+
+  @override
+  void didUpdateWidget(covariant _HeaderStyleButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller == widget.controller) return;
+
+    oldWidget.controller.removeListener(_refresh);
+    widget.controller.addListener(_refresh);
+    setState(() {});
   }
 
   bool get _isSelected {

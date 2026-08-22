@@ -37,7 +37,9 @@ class NotesState {
       notesPath: notesPath ?? this.notesPath,
       nodes: nodes ?? this.nodes,
       expandedPaths: expandedPaths ?? this.expandedPaths,
-      selectedFilePath: selectedFilePath ?? this.selectedFilePath,
+        selectedFilePath: clearSelectedFile
+          ? null
+          : (selectedFilePath ?? this.selectedFilePath),
       editingPath: clearEditingPath ? null : (editingPath ?? this.editingPath),
       isLoading: isLoading ?? this.isLoading,
     );
@@ -73,7 +75,7 @@ class NotesNotifier extends Notifier<NotesState> {
 
     state = state.copyWith(notesPath: path, nodes: tree, isLoading: false);
 
-    _watchFileSystem(path);
+    await _watchFileSystem(path);
   }
 
   List<NoteNode> _scanDirectory(Directory dir) {
@@ -117,8 +119,8 @@ class NotesNotifier extends Notifier<NotesState> {
     return nodes;
   }
 
-  void _watchFileSystem(String path) {
-    _watcherSubscription?.cancel();
+  Future<void> _watchFileSystem(String path) async {
+    await _watcherSubscription?.cancel();
     final watcher = DirectoryWatcher(path);
     _watcherSubscription = watcher.events.listen((_) => refreshTree());
   }

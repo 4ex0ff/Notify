@@ -74,6 +74,7 @@ class _FileTreeViewState extends ConsumerState<FileTreeView> {
   void _setupRenameField(String path) {
     _renameController.text = p.basenameWithoutExtension(path);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _renameFocusNode.requestFocus();
       _renameController.selection = TextSelection(
         baseOffset: 0,
