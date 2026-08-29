@@ -353,6 +353,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                         title: 'Переименовать',
                         icon: LucideIcons.pencil,
                       ),
+                      const ContextMenuDivider(),
                       const ContextMenuItem(
                         value: 'delete',
                         title: 'Удалить',
