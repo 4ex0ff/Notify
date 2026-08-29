@@ -1,0 +1,78 @@
+name: Build Application
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  # ==========================================
+  # Сборка для Windows (Setup + Portable)
+  # ==========================================
+  build-windows:
+    name: Build Windows Target
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows Release
+        run: flutter build windows --release
+
+      # Создание Portable ZIP
+      - name: Compress Windows Portable ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath Notify-Windows-Portable.zip
+
+      # Создание .exe установщика
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+
+      - name: Create Inno Setup Config
+        shell: pwsh
+        run: |
+          $issContent = @"
+          [Setup]
+          AppName=Notify
+          AppVersion=0.1.0
+          DefaultDirName={autopf}\\Notify
+          DefaultGroupName=Notify
+          UninstallDisplayIcon={app}\\notify.exe
+          Compression=lzma2
+          SolidCompression=yes
+          OutputDir=.
+          OutputBaseFilename=Notify-Windows-Setup
+
+          [Files]
+          Source: "build\\windows\\x64\\runner\\Release\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+          [Icons]
+          Name: "{autoprograms}\\Notify"; Filename: "{app}\\notify.exe"
+          Name: "{autodesktop}\\Notify"; Filename: "{app}\\notify.exe"
+
+          [Run]
+          Filename: "{app}\\notify.exe"; Description: "Launch Notify"; Flags: postinstall nowait skipifsilent
+          "@
+          Set-Content -Path setup.iss -Value $issContent
+
+      - name: Compile Inno Setup Installer
+        run: ISCC.exe setup.iss
+
+      # Сохранение скомпилированных файлов Windows
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-binaries
+          path: |
+            Notify-Windows-Setup.exe
+            Notify-Windows-Portable.zip
