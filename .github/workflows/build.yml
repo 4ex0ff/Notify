@@ -32,7 +32,7 @@ jobs:
       - name: Compress Windows Portable ZIP
         shell: pwsh
         run: |
-          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath YourAppName-Windows-Portable.zip
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath Notify-Windows-Portable.zip
 
       # Создание .exe установщика
       - name: Install Inno Setup
@@ -43,25 +43,25 @@ jobs:
         run: |
           $issContent = @"
           [Setup]
-          AppName=YourAppName
-          AppVersion=1.0.0
-          DefaultDirName={autopf}\\YourAppName
-          DefaultGroupName=YourAppName
-          UninstallDisplayIcon={app}\\your_app.exe
+          AppName=Notify
+          AppVersion=0.1.0
+          DefaultDirName={autopf}\\Notify
+          DefaultGroupName=Notify
+          UninstallDisplayIcon={app}\\notify.exe
           Compression=lzma2
           SolidCompression=yes
           OutputDir=.
-          OutputBaseFilename=YourAppName-Windows-Setup
+          OutputBaseFilename=Notify-Windows-Setup
 
           [Files]
           Source: "build\\windows\\x64\\runner\\Release\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
           [Icons]
-          Name: "{autoprograms}\\YourAppName"; Filename: "{app}\\your_app.exe"
-          Name: "{autodesktop}\\YourAppName"; Filename: "{app}\\your_app.exe"
+          Name: "{autoprograms}\\Notify"; Filename: "{app}\\notify.exe"
+          Name: "{autodesktop}\\Notify"; Filename: "{app}\\notify.exe"
 
           [Run]
-          Filename: "{app}\\your_app.exe"; Description: "Launch App"; Flags: postinstall nowait skipifsilent
+          Filename: "{app}\\notify.exe"; Description: "Launch Notify"; Flags: postinstall nowait skipifsilent
           "@
           Set-Content -Path setup.iss -Value $issContent
 
@@ -74,8 +74,8 @@ jobs:
         with:
           name: windows-binaries
           path: |
-            YourAppName-Windows-Setup.exe
-            YourAppName-Windows-Portable.zip
+            Notify-Windows-Setup.exe
+            Notify-Windows-Portable.zip
 
   # ==========================================
   # Сборка для Linux (AppImage + Portable)
@@ -90,7 +90,7 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev wget
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev wget libfuse2 imagemagick
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -107,7 +107,7 @@ jobs:
       # Создание Portable TAR.GZ
       - name: Compress Linux Portable Archive
         run: |
-          tar -czvf YourAppName-Linux-Portable.tar.gz -C build/linux/x64/release/bundle .
+          tar -czvf Notify-Linux-Portable.tar.gz -C build/linux/x64/release/bundle .
 
       # Сборка AppImage
       - name: Package AppImage
@@ -118,26 +118,27 @@ jobs:
           mkdir -p AppDir/usr/bin AppDir/usr/share/icons/hicolor/256x256/apps
           cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
           
-          cat <<EOF > AppDir/your_app.desktop
+          cat <<EOF > AppDir/notify.desktop
           [Desktop Entry]
-          Name=YourAppName
-          Exec=your_app
-          Icon=your_app
+          Name=Notify
+          Exec=notify
+          Icon=notify
           Type=Application
           Categories=Utility;
           EOF
 
-          wget https://raw.githubusercontent.com/flutter/starter/main/public/favicon.png -O AppDir/usr/share/icons/hicolor/256x256/apps/your_app.png
-          cp AppDir/usr/share/icons/hicolor/256x256/apps/your_app.png AppDir/your_app.png
+          sudo apt-get install -y imagemagick
+          convert -size 256x256 xc:#2196F3 -fill white -gravity center -pointsize 72 -draw "text 0,0 'N'" AppDir/usr/share/icons/hicolor/256x256/apps/notify.png
+          cp AppDir/usr/share/icons/hicolor/256x256/apps/notify.png AppDir/notify.png
 
           cat <<EOF > AppDir/AppRun
           #!/bin/sh
           HERE="\$(dirname "\$(readlink -f "\$0")")"
-          exec "\$HERE/usr/bin/your_app" "\$@"
+          exec "\$HERE/usr/bin/notify" "\$@"
           EOF
           chmod +x AppDir/AppRun
 
-          ./appimagetool-x86_64.AppImage AppDir YourAppName-Linux.AppImage
+          ./appimagetool-x86_64.AppImage AppDir Notify-Linux.AppImage
 
       # Сохранение скомпилированных файлов Linux
       - name: Upload Linux Artifacts
@@ -145,51 +146,5 @@ jobs:
         with:
           name: linux-binaries
           path: |
-            YourAppName-Linux.AppImage
-            YourAppName-Linux-Portable.tar.gz
-
-  # ==========================================
-  # Сборка для Android
-  # ==========================================
-  # build-android:
-  #   name: Build Android Target
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-java@v3
-  #       with:
-  #         distribution: 'zulu'
-  #         java-version: '17'
-  #     - uses: subosito/flutter-action@v2
-  #       with:
-  #         channel: 'stable'
-  #         cache: true
-  #     - run: flutter pub get
-  #     - run: flutter build apk --release
-  #     - name: Upload Android Artifacts
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: android-binaries
-  #         path: build/app/outputs/flutter-apk/app-release.apk
-
-  # ==========================================
-  # Финальный релиз
-  # ==========================================
-  create-release:
-    name: Create Final GitHub Release
-    needs: [build-windows, build-linux]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-assets
-          merge-multiple: true
-
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release-assets/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            Notify-Linux.AppImage
+            Notify-Linux-Portable.tar.gz
